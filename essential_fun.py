@@ -1,10 +1,6 @@
 # -*- coding: utf-8 -*-
-
 import numpy as np
-import pycuda.driver as cuda
-import pycuda.autoinit
-from pycuda.compiler import SourceModule
-from pycuda import gpuarray
+
 
 def soft_thresholding(tensor, threshold):
     return np.sign(tensor)*np.maximum(np.abs(tensor)-threshold, 0)
@@ -24,7 +20,6 @@ def error_crit(grad_fx, x, mu):
     return np.max(np.abs(grad_fx-projection))
 
 
-
 #calculate blockwise diagonal of matrix A.transpose()*A
 def fun_diag_ATA(A_b):
     diag_ATA = []
@@ -32,7 +27,6 @@ def fun_diag_ATA(A_b):
         diag_ATA.append(np.sum(np.power(A_b[i], 2), axis=0)[:, np.newaxis])
     diag_ATA = np.asarray(diag_ATA)
     return diag_ATA
-    return result
 
 
 # needs to update
