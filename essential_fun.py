@@ -6,21 +6,21 @@ def soft_thresholding(tensor, threshold):
     return np.sign(tensor)*np.maximum(np.abs(tensor)-threshold, 0)
 
 
-#project vec onto [lower_bound, upper_bound]
+# project vec onto [lower_bound, upper_bound]
 def element_proj(vec, lower_bound, upper_bound):
     return np.maximum(np.minimum(vec, upper_bound), lower_bound)
 
 
-#calculate error
+# calculate error
 def error_crit(grad_fx, x, mu):
     projection = element_proj(grad_fx-x, -mu, mu)
-    #l2 norm
-    #return np.linalg.norm(grad_fx-projection)
-    #l infinity norm
+    # l2 norm
+    # return np.linalg.norm(grad_fx-projection)
+    # l infinity norm
     return np.max(np.abs(grad_fx-projection))
 
 
-#calculate blockwise diagonal of matrix A.transpose()*A
+# calculate blockwise diagonal of matrix A.transpose()*A
 def fun_diag_ATA(A_b):
     diag_ATA = []
     for i in range(len(A_b)):
@@ -39,3 +39,4 @@ def fun_b_k(Ax, b, k):
         for i in range(len(Ax)):
             if i != k:
                 result += Ax[i]
+        return -result + b
