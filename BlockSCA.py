@@ -96,4 +96,4 @@ if __name__ == '__main__':
         # Ax(t+1)
         Ax[m] += r*result_s23
     elapsed = time.time() - start
-    print("Time used: ", elapsed, " s.")
+    print("Time used: ", elapsed, "s.")
