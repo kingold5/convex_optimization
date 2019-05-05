@@ -11,6 +11,7 @@ kernel_code_template = """
 #define MAT_HEIGHT %(MAT_HEIGHT)s
 
 
+//TODO USE SHARED MEMORY TO CACHE VECTOR
 __global__ void mul_mat_t_vec(double *result, double *mat, double *vec,
 unsigned int index_m){
     const unsigned int row = blockIdx.x*blockDim.x + threadIdx.x;
@@ -18,19 +19,19 @@ unsigned int index_m){
     const unsigned int mat_begin = index_m * MAT_WIDTH * MAT_HEIGHT;
     double pValue = 0;
 
-    /*//add vec to shared memeory
-    __shared__ double sh_vec[blockDim.x][T_WIDTH_TRANS];
-    sh_vec[threadIdx.x][threadIdx.y] = vec[vec_begin+threadIdx.y];
-    sh_vec[threadIdx.x][threadIdx.y+1] = vec[vec_begin+threadIdx.y+1];
+    //add vec to shared memeory
+    __shared__ double sh_vec[32][T_WIDTH_TRANS];
+    for (int k = threadIdx.x; k < T_WIDTH_TRANS; k += blockDim.x) {
+        sh_vec[threadIdx.y][k] = vec[vec_begin + k];
+    }
     __syncthreads();
-    */
 
     if(row < MAT_WIDTH && vec_begin < MAT_HEIGHT){
         for(int i= 0; (i < T_WIDTH_TRANS) && ((vec_begin+i)<MAT_HEIGHT); i++){
-            pValue += mat[mat_begin+(vec_begin+i)*MAT_WIDTH+row]\
-                      *vec[vec_begin+i];
             //pValue += mat[mat_begin+(vec_begin+i)*MAT_WIDTH+row]\
-            //          *sh_vec[threadIdx.x][i];
+            //          *vec[vec_begin+i];
+            pValue += mat[mat_begin+(vec_begin+i)*MAT_WIDTH+row]\
+                      *sh_vec[threadIdx.y][i];
         }
         result[row*blockDim.y + threadIdx.y] = pValue;
     }
