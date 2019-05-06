@@ -18,22 +18,40 @@ unsigned int index_m){
     const unsigned int vec_begin = threadIdx.y * T_WIDTH_TRANS;
     const unsigned int mat_begin = index_m * MAT_WIDTH * MAT_HEIGHT;
     double pValue = 0;
+    extern __shared__ double sh_pValue[];
 
-    //add vec to shared memeory
-    __shared__ double sh_vec[32][T_WIDTH_TRANS];
+    /*//add vec to shared memeory
+    extern __shared__ double sh_vec[];
     for (int k = threadIdx.x; k < T_WIDTH_TRANS; k += blockDim.x) {
-        sh_vec[threadIdx.y][k] = vec[vec_begin + k];
+        sh_vec[threadIdx.y*T_WIDTH_TRANS + k] =\
+                vec[vec_begin + k];
     }
     __syncthreads();
+    */
 
     if(row < MAT_WIDTH && vec_begin < MAT_HEIGHT){
         for(int i= 0; (i < T_WIDTH_TRANS) && ((vec_begin+i)<MAT_HEIGHT); i++){
-            //pValue += mat[mat_begin+(vec_begin+i)*MAT_WIDTH+row]\
-            //          *vec[vec_begin+i];
             pValue += mat[mat_begin+(vec_begin+i)*MAT_WIDTH+row]\
-                      *sh_vec[threadIdx.y][i];
+                      *vec[vec_begin+i];
+            //pValue += mat[mat_begin+(vec_begin+i)*MAT_WIDTH+row]\
+            //          *sh_vec[threadIdx.y*T_WIDTH_TRANS + i];
         }
-        result[row*blockDim.y + threadIdx.y] = pValue;
+        sh_pValue[threadIdx.x*blockDim.y + threadIdx.y] = pValue;
+        //result[row*blockDim.y + threadIdx.y] = pValue;
+        __syncthreads();
+
+        for (unsigned int s = blockDim.y/2; s > 0; s >>= 1) {
+            if (threadIdx.y < s) {
+                sh_pValue[threadIdx.x*blockDim.y + threadIdx.y] += \
+                        sh_pValue[threadIdx.x*blockDim.y + threadIdx.y + s];
+            }
+            __syncthreads();
+        }
+
+        if (threadIdx.y == 0) {
+            result[row] = sh_pValue[threadIdx.x*blockDim.y];
+        }
+
     }
 }
 
@@ -106,6 +124,8 @@ class GPU_Calculation:
             (self.MAT_WIDTH+self.T_WIDTH-1) // self.T_WIDTH
         self.result_t = np.empty(
                 (self.MAT_WIDTH, self.SPLIT_TRANS), np.float64)
+        self.result_t_shmem = np.empty(
+                (self.MAT_WIDTH, 1), np.float64)
         self.result = np.empty(
                 (self.MAT_HEIGHT, self.SPLIT), np.float64)
 
@@ -117,6 +137,7 @@ class GPU_Calculation:
         self.d_d_gpu = cuda.mem_alloc(
                 float64_size*self.MAT_WIDTH)
         self.result_t_gpu = gpuarray.to_gpu(self.result_t)
+        self.result_t_shmem_gpu = gpuarray.to_gpu(self.result_t_shmem)
         self.result_gpu = gpuarray.to_gpu(self.result)
 
     @property
@@ -136,14 +157,20 @@ class GPU_Calculation:
         index_m = np.uint32(index_m)
         cuda.memcpy_htod(self.s11_gpu, s11)
         self.mul_mat_t_vec(
-                self.result_t_gpu, self.A_b_gpu, self.s11_gpu, index_m,
-                block=(32, self.SPLIT_TRANS, 1), grid=(20, 1, 1))
-
+                self.result_t_shmem_gpu, self.A_b_gpu, self.s11_gpu, index_m,
+                block=(32, self.SPLIT_TRANS, 1), grid=(20, 1, 1),
+                shared=8*32*self.SPLIT_TRANS)
+                # shared=8*self.SPLIT_TRANS*self.T_WIDTH_TRANS)
+        """
         self.result_t_gpu.get(self.result_t)
         result_t = np.sum(self.result_t, axis=1,
                           dtype=np.float64)[:, np.newaxis]
+        """
+        self.result_t_shmem_gpu.get(self.result_t_shmem)
+        return self.result_t_shmem
+        """
         return result_t
-
+        """
     # matrix@vector
     def matmulvec(self, index_m, descent_d):
         index_m = np.uint32(index_m)
