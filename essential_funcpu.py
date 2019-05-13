@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 import numpy as np
             
 def soft_thresholding(tensor, threshold):
@@ -48,6 +47,3 @@ def fun_dd_p(A_bp, descent_d):
         dd_p.append(descent_d[count : count+len(A_bp[i][0]), :]) 
         count += len(A_bp[i][0])
     return dd_p
-    
-    
-    
