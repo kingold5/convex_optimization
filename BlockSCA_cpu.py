@@ -5,20 +5,20 @@ Created on Wed Mar 20 19:05:53 2019
 @author: Xingran Wang
 """
 
-from essential_fun import element_proj, soft_thresholding, error_crit,\
-fun_s12, fun_diag_ATA, fun_s22, fun_b_k, fun_dd_p
-from parameters import parameters
 from multiprocessing import Pool
 from itertools import product
-import numpy as np
-import settings
 import time
+import numpy as np
+from essential_funcpu import element_proj, soft_thresholding, error_crit,\
+fun_s12, fun_diag_ATA, fun_s22, fun_b_k, fun_dd_p
+from parameters import parameters
+import settings
 
 settings.init()
-#uncommment to load A, b, x_true from file
-settings.read()
-#uncomment to create & write A, b, X_true to file
-#settings.save()
+# load parameters from file
+read_Flag = True
+# write parameters to file
+save_Flag = False
 # number of processors is 4=3+1
 P = 8
 # number of blocks
@@ -33,22 +33,9 @@ DENSITY = 0.4
 ERR_BOUND = 1e-4
 #maximum number of iterations
 ITER_MAX = 1000*BLOCK
+ 
+(A, x_true, b, mu) = parameters(N, K, DENSITY, save_Flag, read_Flag)
 
-#######NEED TO CHECK IF .TXT FILE EXISTS
-if settings.read_Flag == False:
-    #create random parameters
-    (A, x_true, b, mu)=parameters(N, K, DENSITY)
-else:
-    #read the parameters from file
-    A = np.loadtxt(settings.HOME+"/Documents/python/A_matrix.txt", delimiter=",")
-    x_true = np.loadtxt(settings.HOME+"/Documents/python/x_true.txt")
-    x_true = x_true[:, np.newaxis]
-    b = np.loadtxt(settings.HOME+"/Documents/python/b_vector.txt")
-    b = b[:,np.newaxis]
-    [N, K, DENSITY, mu] = np.loadtxt(settings.HOME+"/Documents/python/parameters.txt")
-    print("Parameters loaded with N: %d" % N, ", K: %d" % K,\
-          ", DENSITY: %f" % DENSITY, ", mu: %f" % mu, ".")
-    
 #################################################
 ####divide A, x, A_p, diagonal ATA blockwise#####
 #################################################
@@ -136,5 +123,3 @@ if __name__ == '__main__':
     print("Time used: ", elapsed, " s.")
     pool.close()
     pool.join()
-
-    
