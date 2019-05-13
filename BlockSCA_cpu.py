@@ -111,7 +111,7 @@ if __name__ == '__main__':
               " Optimum Value %f " % opti_value,
               " Stepsize r = %f" % r)
 
-        if error < ERR_BOUND:
+        if errors[-1] < ERR_BOUND:
             block_Cnt += 1
         if BLOCK - 1 == m:
             if block_Cnt == BLOCK:
@@ -126,6 +126,6 @@ if __name__ == '__main__':
         #Ax(t+1)
         Ax[m] += r*result_s23
         time_cnt.append(time.time()-start)
-    print("Time used: ", time_cnt[-1], " s.")
+    print("Time used: ", time_cnt[-1], "s.")
     pool.close()
     pool.join()
