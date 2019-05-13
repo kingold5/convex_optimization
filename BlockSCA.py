@@ -50,7 +50,6 @@ errors = []
 
 if __name__ == '__main__':
     start = time.time()
-    time_cnt.append(start-start)
     for t in range(ITER_MAX):
         # select mth block
         m = t % BLOCK
@@ -101,3 +100,5 @@ if __name__ == '__main__':
         Ax[m] += r*result_s23
         time_cnt.append(time.time()-start)
     print("Time used: ", time_cnt[-1], "s.")
+    for t in time_cnt:
+        print(t)
