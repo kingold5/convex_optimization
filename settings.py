@@ -9,4 +9,4 @@ from pathlib import Path
 
 def init():
     global HOME
-    HOME = "/home/xng"
+    HOME = str(Path.home())
