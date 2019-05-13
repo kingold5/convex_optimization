@@ -46,6 +46,7 @@ d_ATA = gpu_cal.diag_ATA
 Ax = np.array([np.dot(gpu_cal.A_b[k], x_block[k]) for k in range(BLOCK)])
 block_Cnt = 0
 time_cnt = []
+errors = []
 
 if __name__ == '__main__':
     start = time.time()
@@ -74,21 +75,21 @@ if __name__ == '__main__':
         else:
             r = element_proj(-r_1/r_2, 0, 1)
 
-        error = error_crit(result_s13, x_block[m], mu)
+        errors.append(error_crit(result_s13, x_block[m], mu))
         opti_value = 0.5*(np.dot(np.transpose(result_s11), result_s11)) +\
                      mu*np.sum(np.abs(x))
-        time_cnt.append(time.time()-start)
         # opti_value2 = 0.5*np.sum(np.power(A@x-b)) + mu*np.sum(np.abs(x))
         print("Loop ", t,
               " block ", m,
-              " updated, with Error ", error,
+              " updated, with Error ", errors[-1],
               " Optimum Value %f " % opti_value,
               " Stepsize r = %f" % r)
 
-        if error < ERR_BOUND:
+        if errors[-1] < ERR_BOUND:
             block_Cnt += 1
         if BLOCK - 1 == m:
             if block_Cnt == BLOCK:
+                time_cnt.append(time.time()-start)
                 break
             else:
                 block_Cnt = 0
@@ -98,5 +99,5 @@ if __name__ == '__main__':
         x = np.vstack(x_block)
         # Ax(t+1)
         Ax[m] += r*result_s23
+        time_cnt.append(time.time()-start)
     print("Time used: ", time_cnt[-1], "s.")
-    print(time_cnt)
