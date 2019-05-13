@@ -45,9 +45,11 @@ d_ATA = gpu_cal.diag_ATA
 # initialize Ax
 Ax = np.array([np.dot(gpu_cal.A_b[k], x_block[k]) for k in range(BLOCK)])
 block_Cnt = 0
+time_cnt = []
 
 if __name__ == '__main__':
-    time_cnt = time.time()
+    start = time.time()
+    time_cnt.append(start-start)
     for t in range(ITER_MAX):
         # select mth block
         m = t % BLOCK
@@ -75,7 +77,7 @@ if __name__ == '__main__':
         error = error_crit(result_s13, x_block[m], mu)
         opti_value = 0.5*(np.dot(np.transpose(result_s11), result_s11)) +\
                      mu*np.sum(np.abs(x))
-        time_cnt.append(time.time())
+        time_cnt.append(time.time()-start)
         # opti_value2 = 0.5*np.sum(np.power(A@x-b)) + mu*np.sum(np.abs(x))
         print("Loop ", t,
               " block ", m,
@@ -96,6 +98,5 @@ if __name__ == '__main__':
         x = np.vstack(x_block)
         # Ax(t+1)
         Ax[m] += r*result_s23
-    time_cnt = time_cnt - time_cnt[0]
-    print("Time used: ", time_cnt[-1]-time_cnt[0], "s.")
+    print("Time used: ", time_cnt[-1], "s.")
     print(time_cnt)
