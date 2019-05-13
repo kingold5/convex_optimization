@@ -67,6 +67,8 @@ A_block_p = np.asarray(A_block_p)
 ####initialize Ax
 Ax = np.array([A_block[k]@x_block[k] for k in range(BLOCK)])
 block_Cnt = 0
+errors = []
+time_cnt = []
 
 if __name__ == '__main__':  
     start = time.time()
@@ -100,9 +102,10 @@ if __name__ == '__main__':
         else:
             r = element_proj(-r_1/r_2, 0, 1)
         
-        error = error_crit(result_s13, x_block[m], mu)
+        errors.append(error_crit(result_s13, x_block[m], mu))
         opti_value = 0.5*(result_s11.T@result_s11) + mu*np.sum(np.abs(x))
         #opti_value2 = 0.5*np.sum(np.power(A@x-b)) + mu*np.sum(np.abs(x))
+        time_cnt.append(time.time()-start)
         print("Loop ", t, " block ", m, " updated, with Error ", error, " Optimum Value %f " % opti_value,
               " Stepsize r = %f" % r)
         
@@ -119,7 +122,6 @@ if __name__ == '__main__':
         x = np.vstack(x_block)
         #Ax(t+1)
         Ax[m] += r*result_s23
-    elapsed = time.time() - start
-    print("Time used: ", elapsed, " s.")
+    print("Time used: ", time_cnt[-1], " s.")
     pool.close()
     pool.join()
