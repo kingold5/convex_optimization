@@ -83,7 +83,6 @@ if __name__ == '__main__':
         result_s12 = pool.starmap(fun_s12, product(A_block_p[m], (result_s11,)))
         #result__s13 = (result_s12)[p=1...P]
         result_s13 = np.vstack(result_s12)
-        errors.append(error_crit(result_s13, x_block[m], mu))
         #s14
         rx = np.multiply(d_ATA[m], x_block[m]) - result_s13
         soft_t = soft_thresholding(rx, mu)
@@ -117,7 +116,6 @@ if __name__ == '__main__':
             block_Cnt += 1
         if BLOCK - 1 == m:
             if block_Cnt == BLOCK:
-                time_cnt.append(time.time()-start)
                 break
             else:
                 block_Cnt = 0
@@ -136,3 +134,4 @@ if __name__ == '__main__':
     if performance:
         np.savetxt(settings.Dir_PERFORMANCE+"/CPU_time.txt", time_cnt)
         np.savetxt(settings.Dir_PERFORMANCE+"/CPU_errors.txt", errors)
+    # print(len(time_cnt), len(errors))
