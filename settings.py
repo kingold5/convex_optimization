@@ -9,5 +9,6 @@ from pathlib import Path
 
 def init():
     global HOME
+    global Dir_PERFORMANCE
     HOME = str(Path.home())
     Dir_PERFORMANCE = HOME + "/Documents/Performance"
