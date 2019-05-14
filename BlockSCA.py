@@ -100,5 +100,9 @@ if __name__ == '__main__':
         Ax[m] += r*result_s23
         time_cnt.append(time.time()-start)
     print("Time used: ", time_cnt[-1], "s.")
-    for t in time_cnt:
-        print(t)
+
+    performance = True
+    if performance:
+        np.savetxt(settings.HOME+"/Documents/python/GPU_time.txt", time_cnt)
+        np.savetxt(settings.HOME+"/Documents/python/GPU_errors.txt", errors)
+
