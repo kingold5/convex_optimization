@@ -22,7 +22,7 @@ save_Flag = False
 # number of processors is 4=3+1
 P = 8
 # number of blocks
-BLOCK = 5 
+BLOCK = 5
 # col of matrix A
 K = 3200
 # row of matrix A
@@ -33,7 +33,7 @@ DENSITY = 0.4
 ERR_BOUND = 1e-4
 #maximum number of iterations
 ITER_MAX = 1000*BLOCK
- 
+
 (A, x_true, b, mu) = parameters(N, K, DENSITY, save_Flag, read_Flag)
 
 #################################################
@@ -70,10 +70,10 @@ block_Cnt = 0
 errors = []
 time_cnt = []
 
-if __name__ == '__main__':  
+if __name__ == '__main__':
     start = time.time()
     pool = Pool(processes=P)
-    for t in range(ITER_MAX): 
+    for t in range(ITER_MAX):
         # select mth block
         m = t % BLOCK
         b_k = fun_b_k(Ax, b, m)
@@ -129,3 +129,8 @@ if __name__ == '__main__':
     print("Time used: ", time_cnt[-1], "s.")
     pool.close()
     pool.join()
+
+    performance = True
+    if performance:
+        np.savetxt(settings.HOME+"/Documents/python/CPU_time.txt", time_cnt)
+        np.savetxt(settings.HOME+"/Documents/python/CPU_errors.txt", errors)
