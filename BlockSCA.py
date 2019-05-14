@@ -103,6 +103,6 @@ if __name__ == '__main__':
 
     performance = True
     if performance:
-        np.savetxt(settings.HOME+"/Documents/python/GPU_time.txt", time_cnt)
-        np.savetxt(settings.HOME+"/Documents/python/GPU_errors.txt", errors)
+        np.savetxt(settings.Dir_PERFORMANCE+"/GPU_time.txt", time_cnt)
+        np.savetxt(settings.Dir_PERFORMANCE+"/GPU_errors.txt", errors)
 
