@@ -57,7 +57,6 @@ if __name__ == '__main__':
         b_k = fun_b_k(Ax, b, m)
         result_s11 = Ax[m] - b_k
         result_s13 = gpu_cal.mat_tmulvec(m, result_s11)
-        errors.append(error_crit(result_s13, x_block[m], mu))
         # s14
         rx = np.multiply(d_ATA[m], x_block[m]) - result_s13
         soft_t = soft_thresholding(rx, mu)
@@ -90,7 +89,6 @@ if __name__ == '__main__':
             block_Cnt += 1
         if BLOCK - 1 == m:
             if block_Cnt == BLOCK:
-                time_cnt.append(time.time()-start)
                 break
             else:
                 block_Cnt = 0
@@ -107,4 +105,3 @@ if __name__ == '__main__':
     if performance:
         np.savetxt(settings.Dir_PERFORMANCE+"/GPU_time.txt", time_cnt)
         np.savetxt(settings.Dir_PERFORMANCE+"/GPU_errors.txt", errors)
-
