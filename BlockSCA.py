@@ -50,12 +50,14 @@ errors = []
 
 if __name__ == '__main__':
     start = time.time()
+    time_cnt.append(start-start)
     for t in range(ITER_MAX):
         # select mth block
         m = t % BLOCK
         b_k = fun_b_k(Ax, b, m)
         result_s11 = Ax[m] - b_k
         result_s13 = gpu_cal.mat_tmulvec(m, result_s11)
+        errors.append(error_crit(result_s13, x_block[m], mu))
         # s14
         rx = np.multiply(d_ATA[m], x_block[m]) - result_s13
         soft_t = soft_thresholding(rx, mu)
