@@ -132,5 +132,5 @@ if __name__ == '__main__':
 
     performance = True
     if performance:
-        np.savetxt(settings.HOME+"/Documents/python/CPU_time.txt", time_cnt)
-        np.savetxt(settings.HOME+"/Documents/python/CPU_errors.txt", errors)
+        np.savetxt(settings.Dir_PERFORMANCE+"/CPU_time.txt", time_cnt)
+        np.savetxt(settings.Dir_PERFORMANCE+"/CPU_errors.txt", errors)
