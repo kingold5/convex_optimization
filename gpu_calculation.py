@@ -9,7 +9,6 @@ kernel_code_template = """
 #define T_WIDTH_TRANS %(T_WIDTH_TRANS)s
 #define T_WIDTH %(T_WIDTH)s
 #define MAT_HEIGHT %(MAT_HEIGHT)s
-#define T_HEIGHT %(T_HEIGHT)s
 
 //TODO USE SHARED MEMORY TO CACHE VECTOR
 __global__ void mul_mat_t_vec(double *result, double *mat, double *vec,
@@ -56,40 +55,6 @@ unsigned int index_m){
 }
 
 
-__global__ void mul_mat_t_vec_new(double *result, double *mat, double *vec,
-unsigned int index_m){
-    const unsigned int col = blockIdx.x * blockDim.x + threadIdx.x;
-    __shared__ int blockxInd;
-    __shared__ int blockyInd;
-    __shared__ int blockLen;
-    __shared__ int mat_begin;
-    double pValue = 0;
-
-    if (threadIdx.x == 0) {
-        if((blockIdx.x+1)*T_WIDTH_TRANS < MAT_HEIGHT)
-            blockLen = T_WIDTH_TRANS;
-        else
-            blockLen = MAT_WIDTH_ALL % T_WIDTH_TRANS;
-
-        blockxInd = blockIdx.x * T_HEIGHT;
-        blockyInd = blockIdx.y * T_WIDTH_TRANS;
-        mat_begin = index_m * MAT_WIDTH * MAT_HEIGHT;
-    }
-    __syncthreads();
-
-    __shared__ sh_vec[T_WIDTH_TRANS];
-    if (threadIdx.x < blockLen)
-        sh_vec[threadIdx.x] = vec[blockyInd+threadIdx.x];
-    __syncthreads();
-
-    int threadxInd = threadIdx.x + blockxInd;
-    if (threadxInd < MAT_WIDTH) {
-        for (int i = 0; i < T_WIDTH_TRANS; i++)
-            pValue += mat[mat_begin+(i+blockyInd)*MAT_WIDTH+threadxInd]\
-                    *sh_vec[i];
-
-        atomicAdd(&result[threadxInd], pValue)
-}
 __global__ void mul_mat_vec(double *result, double *mat, double *vec,
 unsigned int index_m){
     const unsigned int row = blockIdx.y*blockDim.y + threadIdx.y;
