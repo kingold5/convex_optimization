@@ -5,7 +5,7 @@ Created on Wed Mar 20 19:05:53 2019
 @author: Xingran Wang
 """
 
-from essential_fun import element_proj, soft_thresholding, error_crit,\
+from essential_funcpu import element_proj, soft_thresholding, error_crit,\
                           fun_b_k
 from gpu_calculation import GPU_Calculation
 from parameters import parameters
