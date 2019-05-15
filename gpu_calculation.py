@@ -56,8 +56,8 @@ unsigned int index_m){
 }
 
 
-__global__ void mul_mat_t_vec_new(double *result, double *mat, double *vec,
-unsigned int index_m){
+__global__ void mul_mat_t_vec_diffsize(double *result, double *mat,
+double *vec, unsigned int index_m){
     const unsigned int col = blockIdx.x * blockDim.x + threadIdx.x;
     __shared__ int blockxInd;
     __shared__ int blockyInd;
@@ -90,6 +90,7 @@ unsigned int index_m){
 
         atomicAdd(&result[threadxInd], pValue)
 }
+
 __global__ void mul_mat_vec(double *result, double *mat, double *vec,
 unsigned int index_m){
     const unsigned int row = blockIdx.y*blockDim.y + threadIdx.y;
