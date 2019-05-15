@@ -6,10 +6,10 @@ from pycuda import gpuarray
 
 kernel_code_template = """
 #define MAT_WIDTH %(MAT_WIDTH)s
-#define T_WIDTH_TRANS %(T_WIDTH_TRANS)s
-#define T_WIDTH %(T_WIDTH)s
 #define MAT_HEIGHT %(MAT_HEIGHT)s
-#define T_HEIGHT %(T_HEIGHT)s
+#define T_WIDTH_TRANS 64
+#define T_WIDTH 128
+#define T_HEIGHT 1024
 
 __global__ void mul_mat_t_vec(double *result, double *mat, double *vec,
 unsigned int index_m){
@@ -65,10 +65,10 @@ double *vec, unsigned int index_m){
     double pValue = 0;
 
     if (threadIdx.x == 0) {
-        if((blockIdx.x+1)*T_WIDTH_TRANS < MAT_HEIGHT)
+        if((blockIdx.x+1)*T_WIDTH_TRANS <= MAT_HEIGHT){
             blockLen = T_WIDTH_TRANS;
-        else
-            blockLen = MAT_WIDTH_ALL % T_WIDTH_TRANS;
+        }
+        else blockLen = MAT_HEIGHT % T_WIDTH_TRANS;
 
         blockxInd = blockIdx.x * T_HEIGHT;
         blockyInd = blockIdx.y * T_WIDTH_TRANS;
@@ -83,11 +83,11 @@ double *vec, unsigned int index_m){
 
     int threadxInd = threadIdx.x + blockxInd;
     if (threadxInd < MAT_WIDTH) {
-        for (int i = 0; i < T_WIDTH_TRANS; i++)
+        for (int i = 0; i < blockLen; i++)
             pValue += mat[mat_begin+(i+blockyInd)*MAT_WIDTH+threadxInd]\
                     *sh_vec[i];
 
-        atomicAdd(&result[threadxInd], pValue)
+        atomicAdd(result + threadxInd, pValue);
     }
 }
 
@@ -144,11 +144,10 @@ class GPU_Calculation:
 
         kernel_code = kernel_code_template % {
                 'MAT_WIDTH': self.MAT_WIDTH,
-                'MAT_HEIGHT': self.MAT_HEIGHT,
-                'T_WIDTH_TRANS': self.T_WIDTH_TRANS,
-                'T_WIDTH': self.T_WIDTH,
-                'T_HEIGHT': self.T_HEIGHT
+                'MAT_HEIGHT': self.MAT_HEIGHT
                 }
+        # 'T_HEIGHT': self.T_HEIGHT
+        # 'T_WIDTH': self.T_WIDTH,
         mod = SourceModule(kernel_code)
         self.mul_mat_t_vec = mod.get_function("mul_mat_t_vec")
         self.mul_mat_t_vec_diffsize = mod.get_function(
