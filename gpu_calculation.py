@@ -88,6 +88,7 @@ double *vec, unsigned int index_m){
                     *sh_vec[i];
 
         atomicAdd(&result[threadxInd], pValue)
+    }
 }
 
 __global__ void mul_mat_vec(double *result, double *mat, double *vec,
@@ -250,4 +251,9 @@ class GPU_Calculation:
                 self.result_t_diffsize_gpu, self.A_b_gpu, self.s11_gpu,
                 index_m,
                 block=(self.T_HEIGHT, 1, 1),
-                grid=()
+                grid=(blockCols, blockRows, 1))
+        
+        self.result_t_diffsize_gpu.get(self.result_t_diffsize)
+        self.result_t_diffsize_gpu.fill(0)
+        
+        return result_t_diffsize
