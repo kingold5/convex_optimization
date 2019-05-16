@@ -19,5 +19,3 @@ legend = ax.legend(loc='upper right', fontsize='x-large')
 plt.xlabel('time/s')
 plt.ylabel('errors/log10')
 plt.show()
-
-print(cpu_errors)
