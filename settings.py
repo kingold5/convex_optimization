@@ -11,11 +11,9 @@ import socket
 def init():
     global HOME
     global Dir_PERFORMANCE
-    HOME = str(Path.home())
-    Dir_PERFORMANCE = HOME+"/Documents/Performance"
 
     if socket.gethostname() == "Xng-PC":
         HOME = "/home/xng"
     else:
         HOME = str(Path.home())
-    Dir_PERFORMANCE = HOME + "/Documents/Performance"
+    Dir_PERFORMANCE = HOME + "/Documents/convex_optimization/Performance"
