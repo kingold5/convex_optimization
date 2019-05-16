@@ -134,6 +134,7 @@ class GPU_Calculation:
     T_WIDTH_TRANS = 64
     T_WIDTH = 128
     T_HEIGHT = 1024
+    MAT_WIDTH = 640
 
     def __init__(self, A, Block):
         self.Block = Block
@@ -142,8 +143,8 @@ class GPU_Calculation:
         self.init_gpu_array()
 
         kernel_code = kernel_code_template % {
-                'MAT_WIDTH': self.MAT_WIDTH
-                }
+            'MAT_WIDTH': self.MAT_WIDTH
+            }
         # kernel_code = kernel_code_template
         # 'T_HEIGHT': self.T_HEIGHT
         # 'T_WIDTH': self.T_WIDTH,
