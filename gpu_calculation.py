@@ -250,9 +250,9 @@ class GPU_Calculation:
                 self.result_t_diffsize_gpu, self.A_b_gpu, self.s11_gpu,
                 index_m,
                 block=(self.T_HEIGHT, 1, 1),
-                grid=(blockCols, blockRows, 1))
-        
+                grid=(self.blockCols, self.blockRows, 1))
+
         self.result_t_diffsize_gpu.get(self.result_t_diffsize)
         self.result_t_diffsize_gpu.fill(0)
-        
-        return result_t_diffsize
+
+        return self.result_t_diffsize
