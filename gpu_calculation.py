@@ -5,8 +5,8 @@ from pycuda.compiler import SourceModule
 from pycuda import gpuarray
 
 kernel_code_template = """
-#define MAT_WIDTH %(MAT_WIDTH)s
-#define MAT_HEIGHT %(MAT_HEIGHT)s
+#define MAT_WIDTH 640
+#define MAT_HEIGHT 2048
 #define T_WIDTH_TRANS 64
 #define T_WIDTH 128
 #define T_HEIGHT 1024
@@ -57,7 +57,6 @@ unsigned int index_m){
 
 __global__ void mul_mat_t_vec_diffsize(double *result, double *mat,
 double *vec, unsigned int index_m){
-    const unsigned int col = blockIdx.x * blockDim.x + threadIdx.x;
     __shared__ int blockxInd;
     __shared__ int blockyInd;
     __shared__ int blockLen;
@@ -76,7 +75,7 @@ double *vec, unsigned int index_m){
     }
     __syncthreads();
 
-    __shared__ sh_vec[T_WIDTH_TRANS];
+    __shared__ double sh_vec[T_WIDTH_TRANS];
     if (threadIdx.x < blockLen)
         sh_vec[threadIdx.x] = vec[blockyInd+threadIdx.x];
     __syncthreads();
@@ -142,10 +141,11 @@ class GPU_Calculation:
         self.init_cpu_array(A)
         self.init_gpu_array()
 
-        kernel_code = kernel_code_template % {
-                'MAT_WIDTH': self.MAT_WIDTH,
-                'MAT_HEIGHT': self.MAT_HEIGHT
-                }
+        # kernel_code = kernel_code_template % {
+        #        'MAT_WIDTH': self.MAT_WIDTH,
+        #        'MAT_HEIGHT': self.MAT_HEIGHT
+        #        }
+        kernel_code = kernel_code_template
         # 'T_HEIGHT': self.T_HEIGHT
         # 'T_WIDTH': self.T_WIDTH,
         mod = SourceModule(kernel_code)
