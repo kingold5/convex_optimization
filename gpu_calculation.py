@@ -157,9 +157,9 @@ class GPU_Calculation:
 
         # calculate grid dimension for mul_mat_t_vec_diffsize
         self.blockCols = np.int(
-                (MAT_WIDTH+T_HEIGHT-1)/T_HEIGHT)
+                (self.MAT_WIDTH+self.T_HEIGHT-1)/self.T_HEIGHT)
         self.blockRows = np.int(
-                (MAT_HEIGHT+T_WIDTH_TRANS-1)/T_WIDTH_TRANS)
+                (self.MAT_HEIGHT+self.T_WIDTH_TRANS-1)/self.T_WIDTH_TRANS)
 
     def init_cpu_array(self, A):
         self.A_b = np.hsplit(A, self.Block)
