@@ -5,7 +5,7 @@ from pycuda.compiler import SourceModule
 from pycuda import gpuarray
 
 kernel_code_template = """
-#define MAT_WIDTH 640
+#define MAT_WIDTH %(MAT_WIDTH)s
 #define MAT_HEIGHT 2048
 #define T_WIDTH_TRANS 64
 #define T_WIDTH 128
@@ -141,11 +141,10 @@ class GPU_Calculation:
         self.init_cpu_array(A)
         self.init_gpu_array()
 
-        # kernel_code = kernel_code_template % {
-        #        'MAT_WIDTH': self.MAT_WIDTH,
-        #        'MAT_HEIGHT': self.MAT_HEIGHT
-        #        }
-        kernel_code = kernel_code_template
+        kernel_code = kernel_code_template % {
+                'MAT_WIDTH': self.MAT_WIDTH
+                }
+        # kernel_code = kernel_code_template
         # 'T_HEIGHT': self.T_HEIGHT
         # 'T_WIDTH': self.T_WIDTH,
         mod = SourceModule(kernel_code)
