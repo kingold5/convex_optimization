@@ -9,8 +9,8 @@ from multiprocessing import Pool
 from itertools import product
 import time
 import numpy as np
-from essential_funcpu import element_proj, soft_thresholding, error_crit,\
-fun_s12, fun_diag_ATA, fun_s22, fun_b_k, fun_dd_p
+from cpu_calculation import element_proj, soft_thresholding, error_crit,\
+    fun_s12, fun_diag_ATA, fun_s22, fun_b_k, fun_dd_p
 from parameters import parameters
 import settings
 

@@ -5,13 +5,13 @@ Created on Wed Mar 20 19:05:53 2019
 @author: Xingran Wang
 """
 
-from essential_funcpu import element_proj, soft_thresholding, error_crit,\
+import numpy as np
+import time
+from cpu_calculation import element_proj, soft_thresholding, error_crit,\
                           fun_b_k
 from gpu_calculation import GPU_Calculation
 from parameters import parameters
-import numpy as np
 import settings
-import time
 
 settings.init()
 # load parameters from file
