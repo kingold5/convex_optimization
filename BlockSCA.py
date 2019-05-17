@@ -5,8 +5,8 @@ Created on Wed Mar 20 19:05:53 2019
 @author: Xingran Wang
 """
 
-import numpy as np
 import time
+import numpy as np
 from cpu_calculation import element_proj, soft_thresholding, error_crit,\
                           fun_b_k
 from gpu_calculation import GPU_Calculation
@@ -56,7 +56,8 @@ if __name__ == '__main__':
         m = t % BLOCK
         b_k = fun_b_k(Ax, b, m)
         result_s11 = Ax[m] - b_k
-        result_s13 = gpu_cal.mat_tmulvec(m, result_s11)
+        # result_s13 = gpu_cal.mat_tmulvec(m, result_s11)
+        result_s13 = gpu_cal.mat_tmulvec_diffsize(m, result_s11)
         # s14
         rx = np.multiply(d_ATA[m], x_block[m]) - result_s13
         soft_t = soft_thresholding(rx, mu)
