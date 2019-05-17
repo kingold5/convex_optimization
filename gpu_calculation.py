@@ -1,10 +1,12 @@
 import numpy as np
-from jinja2 import Template
+from jinja2 import Template, Environment, FileSystemLoader
 import pycuda.driver as cuda
 import pycuda.autoinit
 from pycuda.compiler import SourceModule
 from pycuda import gpuarray
 
+
+# load cuda code from template_cuda
 kernel_code_template = Template("""
 #define MAT_WIDTH {{MAT_WIDTH}}
 #define MAT_HEIGHT {{MAT_HEIGHT}}
