@@ -1,11 +1,12 @@
 import numpy as np
+from jinja2 import Template
 import pycuda.driver as cuda
 import pycuda.autoinit
 from pycuda.compiler import SourceModule
 from pycuda import gpuarray
 
-kernel_code_template = """
-#define MAT_WIDTH %(MAT_WIDTH)s
+kernel_code_template = Template("""
+#define MAT_WIDTH {{MAT_WIDTH}}
 #define MAT_HEIGHT 2048
 #define T_WIDTH_TRANS 64
 #define T_WIDTH 128
@@ -124,7 +125,7 @@ unsigned int MAT_WIDTH_ALL){
         result[blockIdx.x*MAT_WIDTH+threadIdx.x] = pValue;
     }
 }
-"""
+""")
 
 # TODO 
 # if matrix A cannot be even blocked,
@@ -134,7 +135,6 @@ class GPU_Calculation:
     T_WIDTH_TRANS = 64
     T_WIDTH = 128
     T_HEIGHT = 1024
-    MAT_WIDTH = 640
 
     def __init__(self, A, Block):
         self.Block = Block
@@ -142,9 +142,9 @@ class GPU_Calculation:
         self.init_cpu_array(A)
         self.init_gpu_array()
 
-        kernel_code = kernel_code_template % {
-            'MAT_WIDTH': self.MAT_WIDTH
-            }
+        kernel_code = kernel_code_template.render(
+            MAT_WIDTH = self.MAT_WIDTH
+            )
         # kernel_code = kernel_code_template
         # 'T_HEIGHT': self.T_HEIGHT
         # 'T_WIDTH': self.T_WIDTH,
