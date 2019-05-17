@@ -1,0 +1,4 @@
+#!/bin/bash
+
+HOME_PATH=$HOME
+scp -r xwang@stadurz.nt.e-technik.tu-darmstadt.de:/home/xwang/Documents/Performance $HOME_PATH/Documents/
