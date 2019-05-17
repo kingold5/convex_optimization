@@ -7,10 +7,10 @@ from pycuda import gpuarray
 
 kernel_code_template = Template("""
 #define MAT_WIDTH {{MAT_WIDTH}}
-#define MAT_HEIGHT 2048
-#define T_WIDTH_TRANS 64
-#define T_WIDTH 128
-#define T_HEIGHT 1024
+#define MAT_HEIGHT {{MAT_HEIGHT}}
+#define T_WIDTH_TRANS {{T_WIDTH_TRANS}}
+#define T_WIDTH {{T_WIDTH}}
+#define T_HEIGHT {{T_HEIGHT}}
 
 __global__ void mul_mat_t_vec(double *result, double *mat, double *vec,
 unsigned int index_m){
@@ -143,11 +143,13 @@ class GPU_Calculation:
         self.init_gpu_array()
 
         kernel_code = kernel_code_template.render(
-            MAT_WIDTH = self.MAT_WIDTH
+            MAT_WIDTH=self.MAT_WIDTH,
+            MAT_HEIGHT=self.MAT_HEIGHT,
+            T_WIDTH_TRANS=self.T_WIDTH_TRANS,
+            T_WIDTH=self.T_WIDTH,
+            T_HEIGHT=self.T_HEIGHT
             )
-        # kernel_code = kernel_code_template
-        # 'T_HEIGHT': self.T_HEIGHT
-        # 'T_WIDTH': self.T_WIDTH,
+
         mod = SourceModule(kernel_code)
         self.mul_mat_t_vec = mod.get_function("mul_mat_t_vec")
         self.mul_mat_t_vec_diffsize = mod.get_function(
