@@ -19,9 +19,9 @@ read_Flag = True
 # write parameters to file
 save_Flag = False
 # number of blocks
-BLOCK = 5
+BLOCK = 4
 # col of matrix A
-K = 3200
+K = 4096
 # row of matrix A
 N = 2048
 # density of sparse vector
@@ -65,11 +65,14 @@ if __name__ == '__main__':
         Bx = np.multiply(np.divide(1.0, d_ATA[m]), soft_t)
         # result_s21 = Bx_p - x_p
         descent_D = Bx-x_block[m]
-        result_s23 = gpu_cal.matmulvec(m, descent_D)
+        # result_s23 = gpu_cal.matmulvec(m, descent_D)
+        result_s23 = gpu_cal.matmulvec_diffsize(m, descent_D)
         # result_s23 = A(Bx-x)
         # stepsize
-        r_1 = np.dot(np.transpose(result_s11), result_s23) +\
-              mu*(np.linalg.norm(Bx, ord=1)-np.linalg.norm(x_block[m], ord=1))
+        r_1 = np.dot(
+            np.transpose(result_s11), result_s23) +\
+            mu*(np.linalg.norm(Bx, ord=1) -
+                np.linalg.norm(x_block[m], ord=1))
         r_2 = np.dot(np.transpose(result_s23), result_s23)
         if r_2 == 0.0:
             print("r_2 is ZERO, couldn't divide ZERO!")
@@ -77,8 +80,9 @@ if __name__ == '__main__':
             r = element_proj(-r_1/r_2, 0, 1)
 
         errors.append(error_crit(result_s13, x_block[m], mu))
-        opti_value = 0.5*(np.dot(np.transpose(result_s11), result_s11)) +\
-                     mu*np.sum(np.abs(x))
+        opti_value = 0.5*(
+            np.dot(np.transpose(result_s11), result_s11)) +\
+            mu*np.sum(np.abs(x))
         # opti_value2 = 0.5*np.sum(np.power(A@x-b)) + mu*np.sum(np.abs(x))
         print("Loop ", t,
               " block ", m,
@@ -102,7 +106,7 @@ if __name__ == '__main__':
         time_cnt.append(time.time()-start)
     print("Time used: ", time_cnt[-1], "s.")
 
-    performance = True
+    performance = False
     if performance:
         np.savetxt(settings.Dir_PERFORMANCE+"/GPU_time.txt", time_cnt)
         np.savetxt(settings.Dir_PERFORMANCE+"/GPU_errors.txt", errors)
