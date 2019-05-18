@@ -4,9 +4,9 @@ Created on Thu Jan 31 12:40:44 2019
 
 @author: Xingran Wang
 """
+from time import time
 import numpy as np
 import scipy.sparse as sparse
-from time import time
 import settings
 
 
@@ -31,7 +31,8 @@ def parameters(N, K, den, save_Flag, read_Flag):
         b = A@x_true + e
         # regularization value mu, mu=0.1*|A^T*b|_inf
         mu = 0.1*np.max(np.abs(np.dot(np.transpose(A), b)))
-        print("Parameters created with N, K, DENSITY, mu: "+str([N, K, den, mu]))
+        print("Parameters @@created with N, K, DENSITY, mu: " +
+              str([N, K, den, mu]))
 
     else:
         # read the parameters from file
@@ -41,9 +42,9 @@ def parameters(N, K, den, save_Flag, read_Flag):
         x_true = x_true[:, np.newaxis]
         b = np.loadtxt(settings.HOME+"/Documents/python/b_vector.txt")
         b = b[:, np.newaxis]
-        [N, K, DENSITY, mu] = np.loadtxt(settings.HOME +
-                "/Documents/python/parameters.txt")
-        print("Parameters loaded with N: %d" % N, ", K: %d" % K,
+        [N, K, DENSITY, mu] = np.loadtxt(
+            settings.HOME + "/Documents/python/parameters.txt")
+        print("Parameters @@loaded with N: %d" % N, ", K: %d" % K,
               ", DENSITY: %f" % DENSITY, ", mu: %f" % mu, ".")
 
     if save_Flag:
@@ -54,5 +55,5 @@ def parameters(N, K, den, save_Flag, read_Flag):
         np.savetxt(settings.HOME+"/Documents/python/b_vector.txt", b)
         np.savetxt(settings.HOME+"/Documents/python/parameters.txt",
                    [N, K, den, mu])
-        print("Paramenters saved!")
+        print("Paramenters @@saved!")
     return(A, x_true, b, mu)
