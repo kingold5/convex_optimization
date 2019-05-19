@@ -151,20 +151,27 @@ unsigned int index_m){
 
 
 __global__ void get_diag_ATA(double *result, double *mat,
-unsigned int MAT_WIDTH_ALL){
-    const unsigned int col = blockIdx.x * MAT_WIDTH + threadIdx.x;
-    const unsigned int mat_begin =\
-            blockIdx.x * MAT_WIDTH * MAT_HEIGHT;
-    double pValue = 0;
-    unsigned int index;
+unsigned int index_m) {
+    __shared__ unsigned int blockxInd;
+    __shared__ unsigned int mat_begin;
 
-    if((threadIdx.x < MAT_WIDTH) && (col < MAT_WIDTH_ALL)) {
+    if (threadIdx.x == 0) {
+        blockxInd = index_m * MAT_WIDTH + blockIdx.x * blockDim.x;
+        mat_begin = index_m * MAT_WIDTH * MAT_HEIGHT;
+    }
+    __syncthreads();
+
+    double pValue = 0;
+    unsigned int k;
+
+    int threadxInd = blockxInd + threadIdx.x;
+    if (threadxInd < (MAT_WIDTH*(1+index_m))) {
         for(int i = 0; i < MAT_HEIGHT; i++) {
-            index = mat_begin+i*MAT_WIDTH+threadIdx.x;
-            pValue += mat[index] * mat[index];
+            k = mat_begin+i*MAT_WIDTH+threadIdx.x;
+            pValue += mat[k] * mat[k];
         }
 
-        result[blockIdx.x*MAT_WIDTH+threadIdx.x] = pValue;
+        result[threadxInd] = pValue;
     }
 }
 """)
@@ -270,10 +277,16 @@ class GPU_Calculation:
     def diag_ATA(self):
         d_ATA = np.empty((self.Block, self.MAT_WIDTH, 1), np.float64)
         d_ATA_gpu = gpuarray.to_gpu(d_ATA)
-        self.get_diag_ATA(d_ATA_gpu, self.A_b_gpu,
-                          np.uint32(self.MAT_WIDTH_ALL),
-                          block=(self.MAT_WIDTH, 1, 1),
-                          grid=(self.Block, 1, 1))
+
+        block_threads = 1024
+        block_cols_d = np.int((self.MAT_WIDTH+block_threads-1)/
+                              block_threads)
+
+        for index in range(self.Block):
+            self.get_diag_ATA(d_ATA_gpu, self.A_b_gpu, np.uint32(index),
+                              block=(block_threads, 1, 1),
+                              grid=(block_cols_d, 1, 1))
+
         d_ATA_gpu.get(d_ATA)
         return d_ATA
 
