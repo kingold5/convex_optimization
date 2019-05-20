@@ -105,7 +105,8 @@ if __name__ == '__main__':
         Ax[m] += r*result_s23
         time_cnt.append(time.time()-start)
     print("Time used: ", time_cnt[-1], "s.",
-          "With", t+1, "loops.")
+          "With", t+1, "loops, and ",
+          BLOCK, "blocks.")
 
     performance = False
     if performance:
