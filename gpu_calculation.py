@@ -5,6 +5,10 @@ import pycuda.autoinit
 from pycuda.compiler import SourceModule
 from pycuda import gpuarray
 
+
+# TODO
+# add Type for double or float
+# 
 # load cuda code from template_cuda
 kernel_code_template = Template("""
 #define MAT_WIDTH {{MAT_WIDTH}}
@@ -12,17 +16,18 @@ kernel_code_template = Template("""
 #define T_WIDTH_TRANS {{T_WIDTH_TRANS}}
 #define T_WIDTH {{T_WIDTH}}
 #define T_HEIGHT {{T_HEIGHT}}
+#define TYPE {{TYPE}}
 
-__global__ void mul_mat_t_vec(double *result, double *mat, double *vec,
+__global__ void mul_mat_t_vec(TYPE *result, TYPE *mat, TYPE *vec,
 unsigned int index_m){
     const unsigned int row = blockIdx.x*blockDim.x + threadIdx.x;
     const unsigned int vec_begin = threadIdx.y * T_WIDTH_TRANS;
     const unsigned int mat_begin = index_m * MAT_WIDTH * MAT_HEIGHT;
-    double pValue = 0;
-    extern __shared__ double sh_pValue[];
+    TYPE pValue = 0;
+    extern __shared__ TYPE sh_pValue[];
 
     /*//add vec to shared memeory
-    extern __shared__ double sh_vec[];
+    extern __shared__ TYPE sh_vec[];
     for (int k = threadIdx.x; k < T_WIDTH_TRANS; k += blockDim.x) {
         sh_vec[threadIdx.y*T_WIDTH_TRANS + k] =\
                 vec[vec_begin + k];
@@ -57,13 +62,13 @@ unsigned int index_m){
 }
 
 
-__global__ void mul_mat_t_vec_diffsize(double *result, double *mat,
-double *vec, unsigned int index_m){
+__global__ void mul_mat_t_vec_diffsize(TYPE *result, TYPE *mat,
+TYPE *vec, int index_m){
     __shared__ int blockxInd;
     __shared__ int blockyInd;
     __shared__ int blockLen;
     __shared__ int mat_begin;
-    double pValue = 0;
+    TYPE pValue = 0;
 
     if (threadIdx.x == 0) {
         if((blockIdx.y+1)*T_WIDTH_TRANS <= MAT_HEIGHT){
@@ -77,7 +82,7 @@ double *vec, unsigned int index_m){
     }
     __syncthreads();
 
-    __shared__ double sh_vec[T_WIDTH_TRANS];
+    __shared__ TYPE sh_vec[T_WIDTH_TRANS];
     int vecInd = threadIdx.x;
     while (vecInd < blockLen) {
         sh_vec[vecInd] = vec[blockyInd+vecInd];
@@ -96,13 +101,13 @@ double *vec, unsigned int index_m){
     }
 }
 
-__global__ void mul_mat_vec_diffsize(double *result, double *mat,
-double *vec, unsigned int index_m){
+__global__ void mul_mat_vec_diffsize(TYPE *result, TYPE *mat,
+TYPE *vec, int index_m){
     __shared__ int blockxInd;
     __shared__ int blockyInd;
     __shared__ int blockLen;
     __shared__ int mat_begin;
-    double pValue = 0;
+    TYPE pValue = 0;
 
     if (threadIdx.y == 0) {
         if((blockIdx.x+1)*T_WIDTH <= MAT_WIDTH)
@@ -115,7 +120,7 @@ double *vec, unsigned int index_m){
     }
     __syncthreads();
 
-    __shared__ double sh_vec[T_WIDTH];
+    __shared__ TYPE sh_vec[T_WIDTH];
     int vecInd = threadIdx.y;
     while (vecInd < blockLen) {
         sh_vec[vecInd] = vec[blockxInd+vecInd];
@@ -133,12 +138,12 @@ double *vec, unsigned int index_m){
     }
 }
 
-__global__ void mul_mat_vec(double *result, double *mat, double *vec,
-unsigned int index_m){
+__global__ void mul_mat_vec(TYPE *result, TYPE *mat, TYPE *vec,
+int index_m){
     const unsigned int row = blockIdx.y*blockDim.y + threadIdx.y;
     const unsigned int vec_begin = threadIdx.x * T_WIDTH;
     const unsigned int mat_begin = index_m * MAT_WIDTH * MAT_HEIGHT;
-    double pValue = 0;
+    TYPE pValue = 0;
 
     if((row < MAT_HEIGHT) && (vec_begin < MAT_WIDTH)){
         for(int i= 0; (i < T_WIDTH) && ((vec_begin+i)<MAT_WIDTH); i++){
@@ -150,10 +155,10 @@ unsigned int index_m){
 }
 
 
-__global__ void get_diag_ATA(double *result, double *mat,
+__global__ void get_diag_ATA(TYPE *result, TYPE *mat,
 unsigned int index_m) {
-    __shared__ unsigned int blockxInd;
-    __shared__ unsigned int mat_begin;
+    __shared__ int blockxInd;
+    __shared__ int mat_begin;
 
     if (threadIdx.x == 0) {
         blockxInd = index_m * MAT_WIDTH + blockIdx.x * blockDim.x;
@@ -161,7 +166,7 @@ unsigned int index_m) {
     }
     __syncthreads();
 
-    double pValue = 0;
+    TYPE pValue = 0;
     unsigned int k;
 
     int threadxInd = blockxInd + threadIdx.x;
@@ -176,16 +181,13 @@ unsigned int index_m) {
 }
 """)
 
-# TODO
-# if matrix A cannot be even blocked,
-# append ZEROs to make MAT_WIDTH_ALL % Block = 0
-
 
 class GPU_Calculation:
 
     T_WIDTH_TRANS = 64
     T_WIDTH = 64
     T_HEIGHT = 512
+    TYPE = 'double'
 
     def __init__(self, A, Block):
         self.Block = Block
@@ -198,7 +200,8 @@ class GPU_Calculation:
             MAT_HEIGHT=self.MAT_HEIGHT,
             T_WIDTH_TRANS=self.T_WIDTH_TRANS,
             T_WIDTH=self.T_WIDTH,
-            T_HEIGHT=self.T_HEIGHT
+            T_HEIGHT=self.T_HEIGHT,
+            TYPE=self.TYPE
             )
 
         mod = SourceModule(kernel_code)
@@ -283,7 +286,7 @@ class GPU_Calculation:
                               block_threads)
 
         for index in range(self.Block):
-            self.get_diag_ATA(d_ATA_gpu, self.A_b_gpu, np.uint32(index),
+            self.get_diag_ATA(d_ATA_gpu, self.A_b_gpu, np.int32(index),
                               block=(block_threads, 1, 1),
                               grid=(block_cols_d, 1, 1))
 
@@ -328,7 +331,7 @@ class GPU_Calculation:
         cuda.memcpy_htod(self.s11_gpu, s11)
         self.mul_mat_t_vec_diffsize(
                 self.result_t_diffsize_gpu, self.A_b_gpu, self.s11_gpu,
-                np.uint32(index_m),
+                np.int32(index_m),
                 block=(self.T_HEIGHT, 1, 1),
                 grid=(self.block_cols_t, self.block_rows_t, 1))
 
@@ -346,7 +349,7 @@ class GPU_Calculation:
         cuda.memcpy_htod(self.d_d_gpu, descent_d)
         self.mul_mat_vec_diffsize(
             self.result_diffsize_gpu, self.A_b_gpu, self.d_d_gpu,
-            np.uint32(index_m),
+            np.int32(index_m),
             block=(1, self.T_HEIGHT, 1),
             grid=(self.block_cols, self.block_rows, 1))
 
