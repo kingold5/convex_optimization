@@ -33,8 +33,8 @@ def parameters(N, K, den, save_Flag, read_Flag):
         mu = 0.1*np.max(np.abs(np.dot(np.transpose(A), b)))
         print("Parameters @@created with N: %d" % N,
               ", K: %d" % K,
-              ", DENSITY: %d" % den,
-              ", mu: %d." % mu)
+              ", DENSITY: %f" % den,
+              ", mu: %f." % mu)
 
     else:
         # read the parameters from file
