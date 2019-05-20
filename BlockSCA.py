@@ -15,15 +15,15 @@ import settings
 
 settings.init()
 # load parameters from file
-read_Flag = True
+read_Flag = False
 # write parameters to file
 save_Flag = False
 # number of blocks
 BLOCK = 1
 # col of matrix A
-K = 512
+K = 128
 # row of matrix A
-N = 512
+N = 128
 # density of sparse vector
 DENSITY = 0.4
 # error bound
@@ -104,7 +104,8 @@ if __name__ == '__main__':
         # Ax(t+1)
         Ax[m] += r*result_s23
         time_cnt.append(time.time()-start)
-    print("Time used: ", time_cnt[-1], "s.")
+    print("Time used: ", time_cnt[-1], "s.",
+          "With", t+1, "loops.")
 
     performance = False
     if performance:
