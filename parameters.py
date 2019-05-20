@@ -31,8 +31,10 @@ def parameters(N, K, den, save_Flag, read_Flag):
         b = A@x_true + e
         # regularization value mu, mu=0.1*|A^T*b|_inf
         mu = 0.1*np.max(np.abs(np.dot(np.transpose(A), b)))
-        print("Parameters @@created with N, K, DENSITY, mu: " +
-              str([N, K, den, mu]))
+        print("Parameters @@created with N: %d" % N,
+              ", K: %d" % K,
+              ", DENSITY: %d" % den,
+              ", mu: %d." % mu)
 
     else:
         # read the parameters from file
@@ -42,7 +44,7 @@ def parameters(N, K, den, save_Flag, read_Flag):
         x_true = x_true[:, np.newaxis]
         b = np.loadtxt(settings.HOME+"/Documents/python/b_vector.txt")
         b = b[:, np.newaxis]
-        [N, K, DENSITY, mu] = np.loadtxt(
+        N, K, DENSITY, mu = np.loadtxt(
             settings.HOME + "/Documents/python/parameters.txt")
         print("Parameters @@loaded with N: %d" % N, ", K: %d" % K,
               ", DENSITY: %f" % DENSITY, ", mu: %f" % mu, ".")
