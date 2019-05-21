@@ -1,2 +1,3 @@
 Compare the speed performance between parallel CPU and GPU calculation
 Draw the results in one figure
+Add transpose before multiplication
