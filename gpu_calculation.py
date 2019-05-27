@@ -17,6 +17,7 @@ kernel_code_template = Template("""
 #define T_WIDTH {{T_WIDTH}}
 #define T_HEIGHT {{T_HEIGHT}}
 #define TYPE {{TYPE}}
+#define BLOCK_DIM 16
 
 __global__ void mul_mat_t_vec(TYPE *result, TYPE *mat, TYPE *vec,
 unsigned int index_m){
@@ -63,22 +64,20 @@ unsigned int index_m){
 
 
 __global__ void mul_mat_t_vec_diffsize(TYPE *result, TYPE *mat,
-TYPE *vec, int index_m){
+TYPE *vec, const int mat_begin, const int height, const int width){
     __shared__ int blockxInd;
     __shared__ int blockyInd;
     __shared__ int blockLen;
-    __shared__ int mat_begin;
     TYPE pValue = 0;
 
     if (threadIdx.x == 0) {
-        if((blockIdx.y+1)*T_WIDTH_TRANS <= MAT_HEIGHT){
+        if((blockIdx.y+1)*T_WIDTH_TRANS <= height){
             blockLen = T_WIDTH_TRANS;
         }
-        else blockLen = MAT_HEIGHT % T_WIDTH_TRANS;
+        else blockLen = height % T_WIDTH_TRANS;
 
         blockxInd = blockIdx.x * T_HEIGHT;
         blockyInd = blockIdx.y * T_WIDTH_TRANS;
-        mat_begin = index_m * MAT_WIDTH * MAT_HEIGHT;
     }
     __syncthreads();
 
@@ -91,7 +90,7 @@ TYPE *vec, int index_m){
     __syncthreads();
 
     int threadxInd = threadIdx.x + blockxInd;
-    if (threadxInd < MAT_WIDTH) {
+    if (threadxInd < width) {
         for (int i = 0; i < blockLen; i++)
             pValue += mat[mat_begin+(i+blockyInd)*MAT_WIDTH+threadxInd]\
                     *sh_vec[i];
@@ -102,21 +101,19 @@ TYPE *vec, int index_m){
 }
 
 __global__ void mul_mat_vec_diffsize(TYPE *result, TYPE *mat,
-TYPE *vec, int index_m){
+TYPE *vec, const int mat_begin, const int height, const int width){
     __shared__ int blockxInd;
     __shared__ int blockyInd;
     __shared__ int blockLen;
-    __shared__ int mat_begin;
     TYPE pValue = 0;
 
     if (threadIdx.y == 0) {
-        if((blockIdx.x+1)*T_WIDTH <= MAT_WIDTH)
+        if((blockIdx.x+1)*T_WIDTH <= width)
             blockLen = T_WIDTH;
-        else blockLen = MAT_WIDTH % T_WIDTH;
+        else blockLen = width % T_WIDTH;
 
         blockxInd = blockIdx.x * T_WIDTH;
         blockyInd = blockIdx.y * T_HEIGHT;
-        mat_begin = index_m * MAT_WIDTH * MAT_HEIGHT;
     }
     __syncthreads();
 
@@ -129,7 +126,7 @@ TYPE *vec, int index_m){
     __syncthreads();
 
     int threadyInd = threadIdx.y + blockyInd;
-    if (threadyInd < MAT_HEIGHT) {
+    if (threadyInd < height) {
         for (int i = 0; i < blockLen; i++)
             pValue += mat[mat_begin+threadyInd*MAT_WIDTH+blockxInd+i]\
                     *sh_vec[i];
@@ -151,6 +148,27 @@ int index_m){
                       *vec[vec_begin+i];
         }
         result[row*blockDim.x + threadIdx.x] = pValue;
+    }
+}
+
+__global__ void mat_transpose(TYPE *result, TYPE *mat,
+const int mat_begin, const int height, const int width) {
+    __shared__ TYPE block[BLOCK_DIM][BLOCK_DIM+1];
+
+    int xIndex = blockIdx.x * BLOCK_DIM + threadIdx.x;
+    int yIndex = blockIdx.y * BLOCK_DIM + threadIdx.y;
+    if ((yIndex < height) && (xIndex < width)) {
+        int index_in = mat_begin + yIndex * width + xIndex;
+        block[threadIdx.y][threadIdx.x] = mat[index_in];
+    }
+
+    __syncthreads();
+
+    xIndex = blockIdx.y * BLOCK_DIM + threadIdx.x;
+    yIndex = blockIdx.x * BLOCK_DIM + threadIdx.y;
+    if ((yIndex < width) && (xIndex < height)) {
+        int index_out = mat_begin + yIndex * height + xIndex;
+        result[index_out] = block[threadIdx.x][threadIdx.y];
     }
 }
 
@@ -212,6 +230,7 @@ class GPU_Calculation:
             "mul_mat_vec_diffsize")
         self.mul_mat_vec = mod.get_function("mul_mat_vec")
         self.get_diag_ATA = mod.get_function("get_diag_ATA")
+        self.mat_transpose = mod.get_function("mat_transpose")
 
     def init_cpu_array(self, A):
         self.A_b = np.hsplit(A, self.Block)
@@ -276,6 +295,10 @@ class GPU_Calculation:
         self.result_diffsize_gpu = gpuarray.to_gpu(
             self.result_diffsize)
 
+        # gpuarray for A_b.Transpose
+        self.A_b_T_gpu = gpuarray.empty(
+                (self.MAT_WIDTH, self.MAT_HEIGHT), np.float64)
+
     @property
     def diag_ATA(self):
         d_ATA = np.empty((self.Block, self.MAT_WIDTH, 1), np.float64)
@@ -295,7 +318,7 @@ class GPU_Calculation:
 
     # matrix.T@vector
     # index_m should be unsigned int
-    def mat_tmulvec(self, index_m, s11):
+    def mat_tMulVec(self, index_m, s11):
         index_m = np.uint32(index_m)
         cuda.memcpy_htod(self.s11_gpu, s11)
         self.mul_mat_t_vec(
@@ -314,7 +337,7 @@ class GPU_Calculation:
         return result_t
         """
     # matrix@vector
-    def matmulvec(self, index_m, descent_d):
+    def matMulVec(self, index_m, descent_d):
         index_m = np.uint32(index_m)
         cuda.memcpy_htod(self.d_d_gpu, descent_d)
         self.mul_mat_vec(self.result_gpu, self.A_b_gpu, self.d_d_gpu, index_m,
@@ -327,11 +350,13 @@ class GPU_Calculation:
         return result
 
     # matrix.T@vector for different size matrix for cuda
-    def mat_tmulvec_diffsize(self, index_m, s11):
+    def mat_tMulVec_DiffSize(self, index_m, s11):
         cuda.memcpy_htod(self.s11_gpu, s11)
+        mat_begin = np.int32(index_m * self.MAT_HEIGHT * self.MAT_WIDTH)
+
         self.mul_mat_t_vec_diffsize(
                 self.result_t_diffsize_gpu, self.A_b_gpu, self.s11_gpu,
-                np.int32(index_m),
+                mat_begin, np.int32(self.MAT_HEIGHT), np.int32(self.MAT_WIDTH),
                 block=(self.T_HEIGHT, 1, 1),
                 grid=(self.block_cols_t, self.block_rows_t, 1))
 
@@ -345,14 +370,27 @@ class GPU_Calculation:
                       dtype=np.float64)[:, np.newaxis]
 
     # matrix@vector for different size matrix for cuda
-    def matmulvec_diffsize(self, index_m, descent_d):
+    def matMulVec_DiffSize(self, index_m, descent_d):
         cuda.memcpy_htod(self.d_d_gpu, descent_d)
+        mat_begin = np.int32(index_m * self.MAT_HEIGHT * self.MAT_WIDTH)
+
         self.mul_mat_vec_diffsize(
             self.result_diffsize_gpu, self.A_b_gpu, self.d_d_gpu,
-            np.int32(index_m),
+            mat_begin, np.int32(self.MAT_HEIGHT), np.int32(self.MAT_WIDTH),
             block=(1, self.T_HEIGHT, 1),
             grid=(self.block_cols, self.block_rows, 1))
 
         self.result_diffsize_gpu.get(self.result_diffsize)
         return np.sum(self.result_diffsize, axis=1,
                       dtype=np.float64)[:, np.newaxis]
+
+    def matTranspose(self, index_m):
+        block_cols = np.int((self.MAT_WIDTH + 16 - 1)/16)
+        block_rows = np.int((self.MAT_HEIGHT + 16 - 1)/16)
+        mat_begin = np.int32(index_m * self.MAT_HEIGHT * self.MAT_WIDTH)
+
+        self.mat_transpose(self.A_b_T_gpu, self.A_b_gpu, mat_begin,
+                           np.int32(self.MAT_HEIGHT),
+                           np.int32(self.MAT_WIDTH),
+                           block=(16, 16, 1),
+                           grid=(block_cols, block_rows, 1))
