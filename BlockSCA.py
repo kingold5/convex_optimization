@@ -57,7 +57,7 @@ if __name__ == '__main__':
         b_k = fun_b_k(Ax, b, m)
         result_s11 = Ax[m] - b_k
         # result_s13 = gpu_cal.mat_tmulvec(m, result_s11)
-        result_s13 = gpu_cal.mat_tmulvec_diffsize(m, result_s11)
+        result_s13 = gpu_cal.mat_tMulVec_DiffSize(m, result_s11)
         # s14
         rx = np.multiply(d_ATA[m], x_block[m]) - result_s13
         soft_t = soft_thresholding(rx, mu)
@@ -66,7 +66,7 @@ if __name__ == '__main__':
         # result_s21 = Bx_p - x_p
         descent_D = Bx-x_block[m]
         # result_s23 = gpu_cal.matmulvec(m, descent_D)
-        result_s23 = gpu_cal.matmulvec_diffsize(m, descent_D)
+        result_s23 = gpu_cal.matMulVec_DiffSize(m, descent_D)
         # result_s23 = A(Bx-x)
         # stepsize
         r_1 = np.dot(
