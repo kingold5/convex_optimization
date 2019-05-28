@@ -10,8 +10,8 @@ import scipy.sparse as sparse
 import settings
 
 
-def parameters(N, K, den, save_Flag, read_Flag):
-    if not read_Flag:
+def parameters(N, K, den, SAVE_FLAG, READ_FLAG):
+    if not READ_FLAG:
         # create matrix A, true vector x_true, and vector b
         # with row-vector normalized matrix A (N by K)
         np.random.seed(int(time()))
@@ -49,7 +49,7 @@ def parameters(N, K, den, save_Flag, read_Flag):
         print("Parameters @@loaded with N: %d" % N, ", K: %d" % K,
               ", DENSITY: %f" % DENSITY, ", mu: %f" % mu, ".")
 
-    if save_Flag:
+    if SAVE_FLAG:
         np.savetxt(settings.HOME+"/Documents/python/A_matrix.txt",
                    A, delimiter=",")
         np.savetxt(settings.HOME+"/Documents/python/x_true.txt",
