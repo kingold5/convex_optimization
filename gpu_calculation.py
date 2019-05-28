@@ -92,7 +92,7 @@ TYPE *vec, const int mat_begin, const int height, const int width){
     int threadxInd = threadIdx.x + blockxInd;
     if (threadxInd < width) {
         for (int i = 0; i < blockLen; i++)
-            pValue += mat[mat_begin+(i+blockyInd)*MAT_WIDTH+threadxInd]\
+            pValue += mat[mat_begin+(i+blockyInd)*width+threadxInd]\
                     *sh_vec[i];
 
         //atomicAdd(result + threadxInd, pValue);
@@ -128,7 +128,7 @@ TYPE *vec, const int mat_begin, const int height, const int width){
     int threadyInd = threadIdx.y + blockyInd;
     if (threadyInd < height) {
         for (int i = 0; i < blockLen; i++)
-            pValue += mat[mat_begin+threadyInd*MAT_WIDTH+blockxInd+i]\
+            pValue += mat[mat_begin+threadyInd*width+blockxInd+i]\
                     *sh_vec[i];
 
         result[threadyInd*gridDim.x+blockIdx.x] = pValue;
@@ -167,7 +167,7 @@ const int mat_begin, const int height, const int width) {
     xIndex = blockIdx.y * BLOCK_DIM + threadIdx.x;
     yIndex = blockIdx.x * BLOCK_DIM + threadIdx.y;
     if ((yIndex < width) && (xIndex < height)) {
-        int index_out = mat_begin + yIndex * height + xIndex;
+        int index_out = yIndex * height + xIndex;
         result[index_out] = block[threadIdx.x][threadIdx.y];
     }
 }
@@ -251,6 +251,9 @@ class GPU_Calculation:
         self.result = np.empty(
             (self.MAT_HEIGHT, self.SPLIT), np.float64)
 
+        # -----------------------------------------------------------
+        # set grid for cuda gpu
+
         # grid dimension for matrix.T@vector diffsize cuda
         self.block_cols_t = np.int(
             (self.MAT_WIDTH+self.T_HEIGHT-1)/self.T_HEIGHT)
@@ -262,6 +265,19 @@ class GPU_Calculation:
             (self.MAT_WIDTH+self.T_WIDTH-1)/self.T_WIDTH)
         self.block_rows = np.int(
             (self.MAT_HEIGHT+self.T_HEIGHT-1)/self.T_HEIGHT)
+
+        # grid dimension for matrix.T diffsize
+        self.block_cols_mt = np.int((self.MAT_WIDTH + 16 - 1)/16)
+        self.block_rows_mt = np.int((self.MAT_HEIGHT + 16 - 1)/16)
+        
+        # grid dimension for matrix@vector diffsize after transpose
+        self.block_cols_at = np.int(
+            (self.MAT_HEIGHT+self.T_HEIGHT-1)/self.T_HEIGHT)
+        self.block_rows_at = np.int(
+            (self.MAT_WIDTH+self.T_WIDTH_TRANS-1)/self.T_WIDTH_TRANS)
+
+        # -------------------------------------------------------------
+        # init gpuarray to store temporal result
 
         # cpu result for mul_mat_t_vec_diffsize
         # all set to zero cuz using atomicAdd()
@@ -276,6 +292,10 @@ class GPU_Calculation:
         self.result_diffsize = np.zeros(
             (self.MAT_HEIGHT, self.block_cols), np.float64)
 
+        # cpu result for matrix@vector diffsize after transpose
+        self.result_at_diffsize = np.zeros(
+            (self.MAT_HEIGHT, self.block_rows_at), np.float64)
+
     def init_gpu_array(self):
         float64_size = np.dtype(np.float64).itemsize
         self.A_b_gpu = gpuarray.to_gpu(self.A_b)
@@ -284,20 +304,24 @@ class GPU_Calculation:
         self.result_t_gpu = gpuarray.to_gpu(self.result_t)
         self.result_t_shmem_gpu = gpuarray.to_gpu(self.result_t_shmem)
 
-        # gpuarray for matrix.T@vector diffsize
+        # result for matrix.T@vector diffsize
         self.result_t_diffsize_gpu = gpuarray.to_gpu(
             self.result_t_diffsize)
 
-        # gpuarray for matrix@vector
+        # result for matrix@vector
         self.result_gpu = gpuarray.to_gpu(self.result)
 
-        # gpuarray for matrix@vector diffsize
+        # result for matrix@vector diffsize
         self.result_diffsize_gpu = gpuarray.to_gpu(
             self.result_diffsize)
 
-        # gpuarray for A_b.Transpose
+        # result for A_b[index_m].Transpose
         self.A_b_T_gpu = gpuarray.empty(
                 (self.MAT_WIDTH, self.MAT_HEIGHT), np.float64)
+
+        # result for matrix@vector diffsize after transpose 
+        self.result_at_diffsize_gpu = gpuarray.to_gpu(
+            self.result_at_diffsize)
 
     @property
     def diag_ATA(self):
@@ -384,13 +408,28 @@ class GPU_Calculation:
         return np.sum(self.result_diffsize, axis=1,
                       dtype=np.float64)[:, np.newaxis]
 
+    # matrix@vector for different size matrix for cuda
+    def matMulVec_DST(self, index_m, descent_d):
+        cuda.memcpy_htod(self.d_d_gpu, descent_d)
+        self.matTranspose(index_m)
+
+        self.mul_mat_t_vec_diffsize(
+            self.result_at_diffsize_gpu, self.A_b_T_gpu, self.d_d_gpu,
+            np.int32(0), np.int32(self.MAT_WIDTH), np.int32(self.MAT_HEIGHT),
+            block=(self.T_HEIGHT, 1, 1),
+            grid=(self.block_cols_at, self.block_rows_at, 1))
+
+        self.result_at_diffsize_gpu.get(self.result_at_diffsize)
+        return np.sum(self.result_at_diffsize, axis=1,
+                      dtype=np.float64)[:, np.newaxis]
+
+    # matrix.T for diffsize
     def matTranspose(self, index_m):
-        block_cols = np.int((self.MAT_WIDTH + 16 - 1)/16)
-        block_rows = np.int((self.MAT_HEIGHT + 16 - 1)/16)
         mat_begin = np.int32(index_m * self.MAT_HEIGHT * self.MAT_WIDTH)
 
-        self.mat_transpose(self.A_b_T_gpu, self.A_b_gpu, mat_begin,
-                           np.int32(self.MAT_HEIGHT),
-                           np.int32(self.MAT_WIDTH),
-                           block=(16, 16, 1),
-                           grid=(block_cols, block_rows, 1))
+        self.mat_transpose(
+                self.A_b_T_gpu, self.A_b_gpu, mat_begin,
+                np.int32(self.MAT_HEIGHT),
+                np.int32(self.MAT_WIDTH),
+                block=(16, 16, 1),
+                grid=(self.block_cols_mt, self.block_rows_mt, 1))
