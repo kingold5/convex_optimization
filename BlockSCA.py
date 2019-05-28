@@ -15,15 +15,15 @@ import settings
 
 settings.init()
 # load parameters from file
-read_Flag = False
+read_Flag = True
 # write parameters to file
 save_Flag = False
 # number of blocks
-BLOCK = 1
+BLOCK = 2
 # col of matrix A
-K = 128
+K = 4096
 # row of matrix A
-N = 128
+N = 1024
 # density of sparse vector
 DENSITY = 0.4
 # error bound
@@ -66,8 +66,8 @@ if __name__ == '__main__':
         # result_s21 = Bx_p - x_p
         descent_D = Bx-x_block[m]
         # result_s23 = gpu_cal.matmulvec(m, descent_D)
-        result_s23 = gpu_cal.matMulVec_DiffSize(m, descent_D)
-        # result_s23 = A(Bx-x)
+        # result_s23 = gpu_cal.matMulVec_DiffSize(m, descent_D)
+        result_s23 = gpu_cal.matMulVec_DST(m, descent_D)
         # stepsize
         r_1 = np.dot(
             np.transpose(result_s11), result_s23) +\
