@@ -6,10 +6,6 @@ from pycuda.compiler import SourceModule
 from pycuda import gpuarray
 
 
-# TODO
-# add Type for double or float
-# 
-# load cuda code from template_cuda
 kernel_code_template = Template("""
 #define MAT_WIDTH {{MAT_WIDTH}}
 #define MAT_HEIGHT {{MAT_HEIGHT}}
