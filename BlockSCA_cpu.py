@@ -16,9 +16,9 @@ import settings
 
 settings.init()
 # load parameters from file
-read_Flag = True
+READ_FLAG = True
 # write parameters to file
-save_Flag = False
+SAVE_FLAG = False
 # number of processors is 4=3+1
 P = 8
 # number of blocks
@@ -34,10 +34,10 @@ ERR_BOUND = 1e-4
 # maximum number of iterations
 ITER_MAX = 1000*BLOCK
 
-(A, x_true, b, mu) = parameters(N, K, DENSITY, save_Flag, read_Flag)
+(A, x_true, b, mu) = parameters(N, K, DENSITY, SAVE_FLAG, READ_FLAG)
 
 #################################################
-#### divide A, x, A_p, diagonal ATA blockwise####
+# ## divide A, x, A_p, diagonal ATA blockwise####
 #################################################
 count = 0
 max_Count = BLOCK*P
@@ -49,10 +49,10 @@ for k in range(BLOCK):
     for j in range(P):
         # divide each block into P pieces for parallel algorithm
         if count < max_Count - 1:
-            A_block_p[k].append(A[:, count*p_Len : (count+1)*p_Len])
+            A_block_p[k].append(A[:, count*p_Len: (count+1)*p_Len])
             count += 1
-        elif count == max_Count -1:
-            A_block_p[k].append(A[:, count*p_Len : len(A[0])])
+        elif count == max_Count - 1:
+            A_block_p[k].append(A[:, count*p_Len: len(A[0])])
             count += 1
         else:
             print("A_block_p failed to create blocks!")
@@ -64,7 +64,7 @@ d_ATA = fun_diag_ATA(A_block)
 A_block = np.asarray(A_block)
 A_block_p = np.asarray(A_block_p)
 
-#### initialize Ax
+# initialize Ax
 Ax = np.array([A_block[k]@x_block[k] for k in range(BLOCK)])
 block_Cnt = 0
 errors = []
@@ -80,7 +80,8 @@ if __name__ == '__main__':
         b_k = fun_b_k(Ax, b, m)
         result_s11 = Ax[m] - b_k
         # result_s12 = A_p^T*(Ax-b)
-        result_s12 = pool.starmap(fun_s12, product(A_block_p[m], (result_s11,)))
+        result_s12 = pool.starmap(fun_s12, product(A_block_p[m],
+                                                   (result_s11,)))
         # result__s13 = (result_s12)[p=1...P]
         result_s13 = np.vstack(result_s12)
         # s14
@@ -95,8 +96,9 @@ if __name__ == '__main__':
         result_s22 = pool.starmap(fun_s22, zip(A_block_p[m], result_s21))
         # result_s23 = A(Bx-x)
         result_s23 = np.sum(result_s22, axis=0)
-        # stepsize 
-        r_1 = result_s11.T@result_s23+mu*(np.linalg.norm(Bx, ord=1)-np.linalg.norm(x_block[m], ord=1))
+        # stepsize
+        r_1 = result_s11.T@result_s23+mu*(np.linalg.norm(Bx, ord=1) -
+                                          np.linalg.norm(x_block[m], ord=1))
         r_2 = result_s23.T@result_s23
         if r_2 == 0.0:
             print("r_2 is ZERO, couldn't divide ZERO!")
@@ -131,7 +133,7 @@ if __name__ == '__main__':
     pool.close()
     pool.join()
 
-    performance = False
-    if performance:
+    PERFORMANCE = False
+    if PERFORMANCE:
         np.savetxt(settings.Dir_PERFORMANCE+"/CPU_time.txt", time_cnt)
         np.savetxt(settings.Dir_PERFORMANCE+"/CPU_errors.txt", errors)
