@@ -15,13 +15,13 @@ import settings
 
 settings.init()
 # load parameters from file
-read_Flag = True
+READ_FLAG = True
 # write parameters to file
-save_Flag = False
+SAVE_FLAG = False
 # number of blocks
-BLOCK = 2
+BLOCK = 1
 # col of matrix A
-K = 4096
+K = 1024
 # row of matrix A
 N = 1024
 # density of sparse vector
@@ -31,7 +31,7 @@ ERR_BOUND = 1e-4
 # maximum number of iterations
 ITER_MAX = 1000*BLOCK
 
-(A, x_true, b, mu) = parameters(N, K, DENSITY, save_Flag, read_Flag)
+(A, x_true, b, mu) = parameters(N, K, DENSITY, SAVE_FLAG, READ_FLAG)
 
 #################################################
 # ###divide A, x, diagonal ATA blockwise#####
@@ -47,6 +47,8 @@ Ax = np.array([np.dot(gpu_cal.A_b[k], x_block[k]) for k in range(BLOCK)])
 block_Cnt = 0
 time_cnt = []
 errors = []
+time_mul = 0
+time_mul_t = 0
 
 if __name__ == '__main__':
     start = time.time()
@@ -56,8 +58,12 @@ if __name__ == '__main__':
         m = t % BLOCK
         b_k = fun_b_k(Ax, b, m)
         result_s11 = Ax[m] - b_k
+
         # result_s13 = gpu_cal.mat_tmulvec(m, result_s11)
+        time_s = time.time()
         result_s13 = gpu_cal.mat_tMulVec_DiffSize(m, result_s11)
+        time_mul_t += time.time() - time_s
+
         # s14
         rx = np.multiply(d_ATA[m], x_block[m]) - result_s13
         soft_t = soft_thresholding(rx, mu)
@@ -65,9 +71,13 @@ if __name__ == '__main__':
         Bx = np.multiply(np.divide(1.0, d_ATA[m]), soft_t)
         # result_s21 = Bx_p - x_p
         descent_D = Bx-x_block[m]
+
+        time_s = time.time()
         # result_s23 = gpu_cal.matmulvec(m, descent_D)
         # result_s23 = gpu_cal.matMulVec_DiffSize(m, descent_D)
         result_s23 = gpu_cal.matMulVec_DST(m, descent_D)
+        time_mul += time.time() - time_s
+
         # stepsize
         r_1 = np.dot(
             np.transpose(result_s11), result_s23) +\
@@ -108,7 +118,8 @@ if __name__ == '__main__':
           "With", t+1, "loops, and ",
           BLOCK, "blocks.")
 
-    performance = False
-    if performance:
+    print("matrix@vector:", time_mul, "s, matrix.T@vector:", time_mul_t)
+    PERFORMANCE = False
+    if PERFORMANCE:
         np.savetxt(settings.Dir_PERFORMANCE+"/GPU_time.txt", time_cnt)
         np.savetxt(settings.Dir_PERFORMANCE+"/GPU_errors.txt", errors)
