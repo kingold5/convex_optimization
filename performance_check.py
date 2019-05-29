@@ -125,7 +125,10 @@ def lasso():
 
 
 time_total = 0
-for ii in range(10):
+INSTANCE = 50
+REP = 1
+
+for ii in range(INSTANCE):
     READ_FLAG = False
     SAVE_FLAG = False
     (A, x_true, b, mu) = parameters(N, K, DENSITY, SAVE_FLAG, READ_FLAG)
@@ -133,7 +136,7 @@ for ii in range(10):
     gpu_cal = GPU_Calculation(A, BLOCK)
     d_ATA = gpu_cal.diag_ATA
 
-    for jj in range(6):
+    for jj in range(REP+1):
         x = np.zeros((A.shape[1], 1))
         x_block = np.vsplit(x, BLOCK)
         x_block = np.asarray(x_block)
@@ -145,7 +148,7 @@ for ii in range(10):
         if jj > 0:
             time_total += time_lasso
 
-print(time_total/50, 's.')
+print(time_total / (INSTANCE*REP), 's.')
 
 #   print("matrix@vector:", time_mul, "s, matrix.T@vector:", time_mul_t)
 #   PERFORMANCE = False
