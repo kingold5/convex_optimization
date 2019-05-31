@@ -37,17 +37,18 @@ ITER_MAX = 1000*BLOCK
 # ###divide A, x, diagonal ATA blockwise#####
 #################################################
 gpu_cal = GPU_Calculation(A, BLOCK)
-x = np.zeros((A.shape[1], 1))
-x_block = np.vsplit(x, BLOCK)
-x_block = np.asarray(x_block)
 d_ATA = gpu_cal.diag_ATA
-
-# initialize Ax
-Ax = np.array([np.dot(gpu_cal.A_b[k], x_block[k]) for k in range(BLOCK)])
 
 
 def lasso():
+    # initialize
+    x = np.zeros((A.shape[1], 1))
+    x_block = np.vsplit(x, BLOCK)
+    x_block = np.asarray(x_block)
+    Ax = np.array([np.dot(gpu_cal.A_b[k], x_block[k]) for k in range(BLOCK)])
     block_Cnt = 0
+
+    # set time and error counter
     time_cnt = []
     errors = []
     # time_mul = 0
@@ -137,12 +138,6 @@ for ii in range(INSTANCE):
     d_ATA = gpu_cal.diag_ATA
 
     for jj in range(REP+1):
-        x = np.zeros((A.shape[1], 1))
-        x_block = np.vsplit(x, BLOCK)
-        x_block = np.asarray(x_block)
-        Ax = np.array([np.dot(gpu_cal.A_b[k], x_block[k])
-                       for k in range(BLOCK)])
-
         time_lasso = lasso()
         # let gpu warmup for first round
         if jj > 0:
