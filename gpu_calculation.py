@@ -232,20 +232,20 @@ class GPU_Calculation:
         self.A_b = np.hsplit(A, self.Block)
         self.A_b = np.asarray(self.A_b).astype(np.float64)
         self.MAT_HEIGHT, self.MAT_WIDTH = self.A_b[0].shape
-        self.SPLIT_TRANS =\
-            (self.MAT_HEIGHT+self.T_WIDTH_TRANS-1) // self.T_WIDTH_TRANS
-        self.SPLIT =\
-            (self.MAT_WIDTH+self.T_WIDTH-1) // self.T_WIDTH
-        self.result_t = np.empty(
-            (self.MAT_WIDTH, self.SPLIT_TRANS), np.float64)
+        # self.SPLIT_TRANS =\
+        #     (self.MAT_HEIGHT+self.T_WIDTH_TRANS-1) // self.T_WIDTH_TRANS
+        # self.SPLIT =\
+        #     (self.MAT_WIDTH+self.T_WIDTH-1) // self.T_WIDTH
+        # self.result_t = np.empty(
+        #     (self.MAT_WIDTH, self.SPLIT_TRANS), np.float64)
 
         # cpu result when using shared memory and reduce algorithm
-        self.result_t_shmem = np.empty(
-            (self.MAT_WIDTH, 1), np.float64)
+        # self.result_t_shmem = np.empty(
+        #     (self.MAT_WIDTH, 1), np.float64)
 
         # cpu result for mul_mat_vec
-        self.result = np.empty(
-            (self.MAT_HEIGHT, self.SPLIT), np.float64)
+        # self.result = np.empty(
+        #     (self.MAT_HEIGHT, self.SPLIT), np.float64)
 
         # -----------------------------------------------------------
         # set grid for cuda gpu
@@ -265,7 +265,7 @@ class GPU_Calculation:
         # grid dimension for matrix.T diffsize
         self.block_cols_mt = np.int((self.MAT_WIDTH + 16 - 1)/16)
         self.block_rows_mt = np.int((self.MAT_HEIGHT + 16 - 1)/16)
-        
+
         # grid dimension for matrix@vector diffsize after transpose
         self.block_cols_at = np.int(
             (self.MAT_HEIGHT+self.T_HEIGHT-1)/self.T_HEIGHT)
@@ -297,15 +297,15 @@ class GPU_Calculation:
         self.A_b_gpu = gpuarray.to_gpu(self.A_b)
         self.s11_gpu = cuda.mem_alloc(float64_size*self.MAT_HEIGHT)
         self.d_d_gpu = cuda.mem_alloc(float64_size*self.MAT_WIDTH)
-        self.result_t_gpu = gpuarray.to_gpu(self.result_t)
-        self.result_t_shmem_gpu = gpuarray.to_gpu(self.result_t_shmem)
+        # self.result_t_gpu = gpuarray.to_gpu(self.result_t)
+        # self.result_t_shmem_gpu = gpuarray.to_gpu(self.result_t_shmem)
+
+        # result for matrix@vector
+        # self.result_gpu = gpuarray.to_gpu(self.result)
 
         # result for matrix.T@vector diffsize
         self.result_t_diffsize_gpu = gpuarray.to_gpu(
             self.result_t_diffsize)
-
-        # result for matrix@vector
-        self.result_gpu = gpuarray.to_gpu(self.result)
 
         # result for matrix@vector diffsize
         self.result_diffsize_gpu = gpuarray.to_gpu(
@@ -315,7 +315,7 @@ class GPU_Calculation:
         self.A_b_T_gpu = gpuarray.empty(
                 (self.MAT_WIDTH, self.MAT_HEIGHT), np.float64)
 
-        # result for matrix@vector diffsize after transpose 
+        # result for matrix@vector diffsize after transpose
         self.result_at_diffsize_gpu = gpuarray.to_gpu(
             self.result_at_diffsize)
 
@@ -325,7 +325,7 @@ class GPU_Calculation:
         d_ATA_gpu = gpuarray.to_gpu(d_ATA)
 
         block_threads = 1024
-        block_cols_d = np.int((self.MAT_WIDTH+block_threads-1)/
+        block_cols_d = np.int((self.MAT_WIDTH+block_threads-1) /
                               block_threads)
 
         for index in range(self.Block):
@@ -337,7 +337,6 @@ class GPU_Calculation:
         return d_ATA
 
     # matrix.T@vector
-    # index_m should be unsigned int
     def mat_tMulVec(self, index_m, s11):
         index_m = np.uint32(index_m)
         cuda.memcpy_htod(self.s11_gpu, s11)
