@@ -14,7 +14,8 @@ import settings
 settings.init()
 
 
-def lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND, ITER_MAX):
+def lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND,
+          ITER_MAX, err_lasso=None, time_lasso=None):
     # initialize
     x = np.zeros((A.shape[1], 1))
     x_block = np.vsplit(x, BLOCK)
@@ -96,6 +97,12 @@ def lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND, ITER_MAX):
     print("Time used: ", time_cnt[-1], "s.",
           "With", t+1, "loops, and ",
           BLOCK, "blocks.")
+
+    if isinstance(err_lasso, list):
+        err_lasso.append(errors)
+    if isinstance(time_lasso, list):
+        time_lasso.append(time_cnt)
+
     # print("matrix@vector:", time_mul, "s, matrix.T@vector:", time_mul_t)
 
     # PERFORMANCE = False
@@ -104,25 +111,3 @@ def lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND, ITER_MAX):
     #     np.savetxt(settings.Dir_PERFORMANCE+"/GPU_errors.txt", errors)
 
     return time_cnt[-1]
-
-
-# # load parameters from file
-# READ_FLAG = True
-# # write parameters to file
-# SAVE_FLAG = False
-# # number of blocks
-# BLOCK = 1
-# # col of matrix A
-# K = 1024
-# # row of matrix A
-# N = 1024
-# # density of sparse vector
-# DENSITY = 0.4
-# # error bound
-# ERR_BOUND = 1e-4
-# # maximum number of iterations
-# ITER_MAX = 1000*BLOCK
-# (A, x_true, b, mu) = parameters(N, K, DENSITY, SAVE_FLAG, READ_FLAG)
-# gpu_cal = GPU_Calculation(A, BLOCK)
-# d_ATA = gpu_cal.diag_ATA
-# lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND, ITER_MAX)
