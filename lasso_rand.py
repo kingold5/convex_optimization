@@ -15,8 +15,8 @@ import settings
 settings.init()
 
 
-def lasso_rand(gpu_cal, d_ATA, A, b, mu,
-               BLOCK, ERR_BOUND, ITER_MAX):
+def lasso_rand(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND,
+               ITER_MAX, err_lasso=None, time_lasso=None):
     # initialization
     x = np.zeros((A.shape[1], 1))
     x_block = np.vsplit(x, BLOCK)
@@ -109,6 +109,12 @@ def lasso_rand(gpu_cal, d_ATA, A, b, mu,
     print("Time used: ", time_cnt[-1], "s.",
           "With", t+1, "loops, and ",
           BLOCK, "blocks.")
+
+    if isinstance(err_lasso, list):
+        err_lasso.append(errors)
+    if isinstance(time_lasso, list):
+        time_lasso.append(time_cnt)
+
     # print("matrix@vector:", time_mul, "s, matrix.T@vector:", time_mul_t)
 
     # PERFORMANCE = False
