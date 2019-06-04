@@ -10,7 +10,7 @@ import scipy.sparse as sparse
 import settings
 
 
-def parameters(N, K, den, SAVE_FLAG, READ_FLAG):
+def parameters(N, K, den, SAVE_FLAG, READ_FLAG, SILENCE=False):
     if not READ_FLAG:
         # create matrix A, true vector x_true, and vector b
         # with row-vector normalized matrix A (N by K)
@@ -31,10 +31,12 @@ def parameters(N, K, den, SAVE_FLAG, READ_FLAG):
         b = A@x_true + e
         # regularization value mu, mu=0.1*|A^T*b|_inf
         mu = 0.1*np.max(np.abs(np.dot(np.transpose(A), b)))
-        print("Parameters @@created with N: %d" % N,
-              ", K: %d" % K,
-              ", DENSITY: %f" % den,
-              ", mu: %f." % mu)
+
+        if not SILENCE:
+            print("Parameters @@created with N: %d" % N,
+                  ", K: %d" % K,
+                  ", DENSITY: %f" % den,
+                  ", mu: %f." % mu)
 
     else:
         # read the parameters from file
@@ -46,8 +48,12 @@ def parameters(N, K, den, SAVE_FLAG, READ_FLAG):
         b = b[:, np.newaxis]
         N, K, DENSITY, mu = np.loadtxt(
             settings.HOME + "/Documents/python/parameters.txt")
-        print("Parameters @@loaded with N: %d" % N, ", K: %d" % K,
-              ", DENSITY: %f" % DENSITY, ", mu: %f" % mu, ".")
+
+        if not SILENCE:
+            print("Parameters @@loaded with N: %d" % N,
+                  ", K: %d" % K,
+                  ", DENSITY: %f" % DENSITY,
+                  ", mu: %f" % mu, ".")
 
     if SAVE_FLAG:
         np.savetxt(settings.HOME+"/Documents/python/A_matrix.txt",
@@ -57,5 +63,7 @@ def parameters(N, K, den, SAVE_FLAG, READ_FLAG):
         np.savetxt(settings.HOME+"/Documents/python/b_vector.txt", b)
         np.savetxt(settings.HOME+"/Documents/python/parameters.txt",
                    [N, K, den, mu])
-        print("Paramenters @@saved!")
+
+        if not SILENCE:
+            print("Paramenters @@saved!")
     return(A, x_true, b, mu)
