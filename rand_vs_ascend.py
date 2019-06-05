@@ -60,7 +60,7 @@ for n_exp in np.arange(7, 8):
             time_lasso_r = []
 
             time_winit = 0
-            ITER_MAX = 1000 * BLOCK
+            ITER_MAX = 2000
 
             for ii in range(INSTANCE):
                 # make sure every random seed is unique
@@ -79,11 +79,11 @@ for n_exp in np.arange(7, 8):
 
                 # let gpu warmup the first round
                 lasso(gpu_cal, d_ATA, A, b, mu, BLOCK,
-                      ERR_BOUND, ITER_MAX, SILENCE=False)
+                      ITER_MAX, ERR_BOUND, SILENCE=False)
                 time_comp.append(
                     lasso(gpu_cal, d_ATA, A, b, mu, BLOCK,
-                          ERR_BOUND, ITER_MAX,
-                          err_lasso, time_lasso,
+                          ITER_MAX, ERR_BOUND,
+                          err_iter=err_lasso, time_iter=time_lasso,
                           SILENCE=False, DEBUG=False))
 
                 time_comp_r.append(
