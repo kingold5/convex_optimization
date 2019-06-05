@@ -15,8 +15,8 @@ import settings
 settings.init()
 
 
-def lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND,
-          ITER_MAX, err_lasso=None, time_lasso=None,
+def lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX,
+          ERR_BOUND=None, err_iter=None, time_iter=None,
           SILENCE=False, DEBUG=False):
     # initialize
     x = np.zeros((A.shape[1], 1))
@@ -71,7 +71,9 @@ def lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND,
             r = element_proj(-r_1/r_2, 0, 1)
 
         errors.append(error_crit(result_s13, x_block[m], mu))
+        # print every loop result
         if DEBUG:
+            # TODO change to local objective funciton
             opti_value2 = 0.5*np.sum(np.power(A@x-b, 2)) +\
                     mu*np.sum(np.abs(x))
             print('Loop {:-4} block {:-2} updated, '
@@ -80,13 +82,14 @@ def lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND,
                   'Stepsize r = {:.6f}'.format(
                       t, m, errors[-1], opti_value2, r[0][0]))
 
-        if errors[-1] < ERR_BOUND:
-            block_Cnt += 1
-        if BLOCK - 1 == m:
-            if block_Cnt == BLOCK:
-                break
-            else:
-                block_Cnt = 0
+        if isinstance(ERR_BOUND, float):
+            if errors[-1] < ERR_BOUND:
+                block_Cnt += 1
+            if BLOCK - 1 == m:
+                if block_Cnt == BLOCK:
+                    break
+                else:
+                    block_Cnt = 0
 
         # x(t+1) = x(t)+r(Bx(t)-x(t))
         x_block[m] += r*(Bx-x_block[m])
@@ -95,16 +98,17 @@ def lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND,
         Ax[m] += r*result_s23
         time_cnt.append(time.time()-start)
 
+    # print final results
     if not SILENCE:
         print("Time used: ", time_cnt[-1], "s.",
               "With", t+1, "loops, and ",
               BLOCK, "blocks.")
         # print("matrix@vector:", time_mul, "s, matrix.T@vector:", time_mul_t)
 
-    if isinstance(err_lasso, list):
-        err_lasso.append(errors)
-    if isinstance(time_lasso, list):
-        time_lasso.append(time_cnt)
+    if isinstance(err_iter, list):
+        err_iter.append(errors)
+    if isinstance(time_iter, list):
+        time_iter.append(time_cnt)
 
     # PERFORMANCE = False
     # if PERFORMANCE:
@@ -114,8 +118,8 @@ def lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND,
     return time_cnt[-1]
 
 
-def lasso_rand(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND,
-               ITER_MAX, err_lasso=None, time_lasso=None,
+def lasso_rand(gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX,
+               ERR_BOUND=None, err_lasso=None, time_lasso=None,
                SILENCE=False, DEBUG=False):
     # initialization
     x = np.zeros((A.shape[1], 1))
@@ -182,6 +186,7 @@ def lasso_rand(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND,
             r = element_proj(-r_1/r_2, 0, 1)
 
         errors.append(error_crit(result_s13, x_block[m], mu))
+        # print every loop result
         if DEBUG:
             opti_value2 = 0.5*np.sum(np.power(A@x-b, 2)) +\
                     mu*np.sum(np.abs(x))
@@ -191,13 +196,15 @@ def lasso_rand(gpu_cal, d_ATA, A, b, mu, BLOCK, ERR_BOUND,
                   'Stepsize r = {:.6f}'.format(
                       t, m, errors[-1], opti_value2, r[0][0]))
 
-        if errors[-1] < ERR_BOUND:
-            block_Cnt += 1
-        if BLOCK - 1 == m:
-            if block_Cnt == BLOCK:
-                break
-            else:
-                block_Cnt = 0
+        # toggle error bound
+        if isinstance(ERR_BOUND, float):
+            if errors[-1] < ERR_BOUND:
+                block_Cnt += 1
+            if BLOCK - 1 == m:
+                if block_Cnt == BLOCK:
+                    break
+                else:
+                    block_Cnt = 0
 
         # x(t+1) = x(t)+r(Bx(t)-x(t))
         x_block[m] += r*(Bx-x_block[m])
