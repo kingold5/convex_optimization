@@ -18,7 +18,7 @@ def parameters(N, K, den, SAVE_FLAG, READ_FLAG, SILENCE=False):
         A = []
         while np.linalg.matrix_rank(A) < np.minimum(N, K):
             A = np.random.randn(N, K)
-            A = A/(np.linalg.norm(A, axis=1)[:, np.newaxis])
+            A = A/(np.linalg.norm(A, ord=2, axis=1, keepdims=True))
         # true sparse vector x_true with element value [0, 1]
         # dimension (K,1)
         x_true = sparse.random(K, 1, density=den, format="csc",
