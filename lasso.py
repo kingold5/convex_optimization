@@ -22,7 +22,7 @@ def lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX,
     x = np.zeros((A.shape[1], 1))
     x_block = np.vsplit(x, BLOCK)
     x_block = np.asarray(x_block)
-    Ax = np.array([np.dot(gpu_cal.A_b[k], x_block[k]) for k in range(BLOCK)])
+    Ax = np.array([gpu_cal.A_b[k] @ x_block[k] for k in range(BLOCK)])
     block_Cnt = 0
 
     # set time and error counter
@@ -60,15 +60,14 @@ def lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX,
         # time_mul += time.time() - time_s
 
         # stepsize
-        r_1 = np.dot(
-            np.transpose(result_s11), result_s23) +\
+        r_1 = np.transpose(result_s11) @ result_s23 +\
             mu*(np.linalg.norm(Bx, ord=1) -
                 np.linalg.norm(x_block[m], ord=1))
-        r_2 = np.dot(np.transpose(result_s23), result_s23)
+        r_2 = np.transpose(result_s23) @ result_s23
         if r_2 == 0.0:
             print('r_2 is ZERO, could not divide ZERO!')
         else:
-            r = element_proj(-r_1/r_2, 0, 1)
+            r = np.float64(element_proj(-r_1/r_2, 0, 1))
 
         errors.append(error_crit(result_s13, x_block[m], mu))
         # print every loop result
@@ -76,11 +75,11 @@ def lasso(gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX,
             # TODO change to local objective funciton
             opti_value2 = 0.5*np.sum(np.power(A@x-b, 2)) +\
                     mu*np.sum(np.abs(x))
-            print('Loop {:-4} block {:-2} updated, '
+            print('Ascend Index: Loop {:-4} block {:-2} updated, '
                   'with Error {:.8f}, '
                   'optimum value {:4.6f}, '
                   'Stepsize r = {:.6f}'.format(
-                      t, m, errors[-1], opti_value2, r[0][0]))
+                      t, m, errors[-1], opti_value2, r))
 
         if isinstance(ERR_BOUND, float):
             if errors[-1] < ERR_BOUND:
@@ -175,26 +174,25 @@ def lasso_rand(gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX,
         # time_mul += time.time() - time_s
 
         # stepsize
-        r_1 = np.dot(
-            np.transpose(result_s11), result_s23) +\
+        r_1 = np.transpose(result_s11) @ result_s23 +\
             mu*(np.linalg.norm(Bx, ord=1) -
                 np.linalg.norm(x_block[m], ord=1))
-        r_2 = np.dot(np.transpose(result_s23), result_s23)
+        r_2 = np.transpose(result_s23) @ result_s23
         if r_2 == 0.0:
             print('r_2 is ZERO, could not divide ZERO!')
         else:
-            r = element_proj(-r_1/r_2, 0, 1)
+            r = np.float64(element_proj(-r_1/r_2, 0, 1))
 
         errors.append(error_crit(result_s13, x_block[m], mu))
         # print every loop result
         if DEBUG:
             opti_value2 = 0.5*np.sum(np.power(A@x-b, 2)) +\
                     mu*np.sum(np.abs(x))
-            print('Loop {:-4} block {:-2} updated, '
+            print('Random Index: Loop {:-4} block {:-2} updated, '
                   'with Error {:.8f}, '
                   'optimum value {:4.6f}, '
                   'Stepsize r = {:.6f}'.format(
-                      t, m, errors[-1], opti_value2, r[0][0]))
+                      t, m, errors[-1], opti_value2, r))
 
         # toggle error bound
         if isinstance(ERR_BOUND, float):
