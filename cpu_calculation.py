@@ -25,11 +25,12 @@ def fun_s12(A_bp, s11):
 
 
 # calculate blockwise diagonal of matrix A.transpose()*A
-def fun_diag_ATA(A_b):
-    diag_ATA = []
-    for i in range(len(A_b)):
-        diag_ATA.append(np.sum(np.power(A_b[i], 2), axis=0)[:, np.newaxis])
-    return diag_ATA
+def fun_diag_ATA(A_bp):
+    BLOCK = A_bp.shape[0]
+    HEIGHT = A_bp.shape[2]
+
+    diag_ATA = A_bp.transpose((0, 2, 1, 3)).reshape((BLOCK, HEIGHT, -1))
+    return np.sum(np.square(diag_ATA), axis=1)[:, :, np.newaxis]
 
 
 def fun_s22(A_bp, s21):
@@ -48,10 +49,5 @@ def fun_b_k(Ax, b, k):
         return -result + b
 
 
-def fun_dd_p(A_bp, descent_d):
-    dd_p = []
-    count = 0
-    for i in range(len(A_bp)):
-        dd_p.append(descent_d[count: count+len(A_bp[i][0]), :])
-        count += len(A_bp[i][0])
-    return dd_p
+def fun_dd_p(P, descent_d):
+    return descent_d.reshape((P, -1, 1))
