@@ -4,7 +4,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 from gpu_calculation import GPU_Calculation
-from cpu_calculation import A_bp_get
+from cpu_calculation import A_bp_get, fun_diag_ATA
 from parameters import parameters
 from lasso import ClassLasso, ClassLassoR, ClassLassoCPU
 from average import list_aver
@@ -87,11 +87,13 @@ for n_exp in np.arange(9, 10):
                     gpu_cal = GPU_Calculation(A, BLOCK)
                     A_block_p = A_bp_get(A, BLOCK, P)
                     d_ATA = gpu_cal.diag_ATA
+                    d_ATA_c = fun_diag_ATA(A_block_p)
+                    print(d_ATA - d_ATA_c)
                     lasso = ClassLasso(gpu_cal, d_ATA, A, b, mu,
                                        BLOCK, ITER_MAX)
                     lasso_r = ClassLassoR(gpu_cal, d_ATA, A, b,
                                           mu, BLOCK, ITER_MAX)
-                    lasso_cpu = ClassLassoCPU(A_block_p, d_ATA, A,
+                    lasso_cpu = ClassLassoCPU(A_block_p, d_ATA_c, A,
                                               b, mu, BLOCK, P, ITER_MAX)
                     time_winit += time.time() - t_init
 
