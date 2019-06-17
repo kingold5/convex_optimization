@@ -10,7 +10,7 @@ from itertools import product
 import time
 import numpy as np
 from cpu_calculation import element_proj, soft_thresholding, error_crit,\
-    fun_s12, fun_diag_ATA, fun_s22, fun_b_k, fun_dd_p
+    fun_s12, fun_diag_ATA, fun_s22, fun_b_k, fun_dd_p, A_bp_get
 from parameters import parameters
 import settings
 
@@ -39,29 +39,25 @@ ITER_MAX = 1000*BLOCK
 #################################################
 # ## divide A, x, A_p, diagonal ATA blockwise####
 #################################################
-count = 0
-max_Count = BLOCK*P
-p_len = A.shape[1]//max_Count
-p_hei = A.shape[0]
-
-if (BLOCK * P == 1):
-    A_block_p = A
-else:
-    A_block_p = A.reshape(
-        2, -1, p_hei, p_len).transpose((1, 2, 0, 3)).reshape(
-            BLOCK, P, p_hei, p_len)
-
-x_block = np.zeros((BLOCK, np.int(A.shape[1]/BLOCK), 1))
-x = np.vstack(x_block)
+A_block_p = A_bp_get(A, BLOCK, P)
 d_ATA = fun_diag_ATA(A_block_p)
 
-# initialize Ax
-Ax = np.zeros((BLOCK, A.shape[0], 1))
-block_Cnt = 0
-errors = np.zeros((ITER_MAX))
-time_cnt = np.zeros((ITER_MAX))
 
-if __name__ == '__main__':
+def lasso_cpu(A_block_p, d_ATA, A, b, mu, Block, P, ITER_MAX,
+              ERR_BOUND=None, err_iter=None, time_iter=None,
+              SILENCE=False, DEBUG=False):
+    # initializatione
+    A_SHAPE = A.shape
+    x = np.zeros((A_SHAPE[1], 1))
+    x_block = np.asarray(np.vsplit(x, BLOCK))
+    Ax = np.zeros((BLOCK, A_SHAPE[0], 1))
+
+    block_Cnt = 0
+
+    # set time and error counter
+    errors = np.zeros((ITER_MAX))
+    time_cnt = np.zeros((ITER_MAX))
+
     start = time.time()
     time_cnt[0] = 0
     pool = Pool(processes=P)
@@ -88,31 +84,37 @@ if __name__ == '__main__':
         # result_s23 = A(Bx-x)
         result_s23 = np.sum(result_s22, axis=0)
         # stepsize
-        r_1 = result_s11.T@result_s23+mu*(np.linalg.norm(Bx, ord=1) -
-                                          np.linalg.norm(x_block[m], ord=1))
-        r_2 = result_s23.T@result_s23
+        r_1 = np.transpose(result_s11) @ result_s23 +\
+            mu*(np.linalg.norm(Bx, ord=1) -
+                np.linalg.norm(x_block[m], ord=1))
+        r_2 = np.transpose(result_s23) @ result_s23
         if r_2 == 0.0:
             print("r_2 is ZERO, couldn't divide ZERO!")
         else:
-            r = element_proj(-r_1/r_2, 0, 1)
+            r = np.float64(element_proj(-r_1/r_2, 0, 1))
 
         errors[t] = error_crit(result_s13, x_block[m], mu)
-        # # opti_value = 0.5*np.sum(np.power(result_s11, 2)) +\
-        # #              mu*np.sum(np.abs(x_block[m]))
-        # opti_value2 = 0.5*np.sum(np.power(A@x-b, 2)) + mu*np.sum(np.abs(x))
-        # print("Loop ", t,
-        #       " block ", m,
-        #       " updated, with Error ", errors[t],
-        #       " Optimum Value %f " % opti_value2,
-        #       " Stepsize r = %f" % r)
+        # print result of each loop
+        if DEBUG:
+            # opti_value = 0.5*np.sum(np.power(result_s11, 2)) +\
+            #              mu*np.sum(np.abs(x_block[m]))
+            opti_value2 = 0.5*np.sum(np.power(A@x-b, 2)) +\
+                    mu*np.sum(np.abs(x))
+            print('CPU computation: '
+                  'Loop {:-4} block {:-2} update, '
+                  'with Error {:.8f}, '
+                  'optimum value {:4.6f}, '
+                  'Stepsize {:.6f}'.format(
+                      t, m, errors[t], opti_value2, r))
 
-        if errors[t] < ERR_BOUND:
-            block_Cnt += 1
-        if BLOCK - 1 == m:
-            if block_Cnt == BLOCK:
-                break
-            else:
-                block_Cnt = 0
+        if isinstance(ERR_BOUND, float):
+            if errors[t] < ERR_BOUND:
+                block_Cnt += 1
+            if BLOCK - 1 == m:
+                if block_Cnt == BLOCK:
+                    break
+                else:
+                    block_Cnt = 0
 
         # x(t+1) = x(t)+r(Bx(t)-x(t))
         x_block[m] += r*(Bx-x_block[m])
@@ -120,10 +122,19 @@ if __name__ == '__main__':
         # Ax(t+1)
         Ax[m] += r*result_s23
         time_cnt[t+1] = time.time()-start
-    print('block number: ' + str(BLOCK)
-          + ', cores number: ' + str(P)
-          + ', time used: ' + str(time_cnt[t]) + 's, '
-          + 'with ' + str(t+1) + ' loops.')
+
+    # print final results
+    if not SILENCE:
+        print('CPU computaion, block number: {}'
+              ', cores number: {}'
+              ', time used: {:.6f} s'
+              ', with {:-4} loops'.format(Block, P, time_cnt[t], t+1))
+
+    if isinstance(err_iter, list):
+        err_iter.append(errors)
+    if isinstance(time_iter, list):
+        time_iter.append(time_cnt)
+
     pool.close()
     pool.join()
 
@@ -131,3 +142,7 @@ if __name__ == '__main__':
     if PERFORMANCE:
         np.savetxt(settings.Dir_PERFORMANCE+"/CPU_time.txt", time_cnt)
         np.savetxt(settings.Dir_PERFORMANCE+"/CPU_errors.txt", errors)
+
+
+lasso_cpu(A_block_p, d_ATA, A, b, mu, BLOCK, P,
+          ITER_MAX, ERR_BOUND, SILENCE=False, DEBUG=False)
