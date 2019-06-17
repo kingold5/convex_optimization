@@ -20,6 +20,18 @@ def error_crit(grad_fx, x, mu):
     return np.max(np.abs(grad_fx-projection))
 
 
+def A_bp_get(A, BLOCK, P):
+    A_SHAPE = A.shape
+    p_len = A_SHAPE[1]//(BLOCK * P)
+
+    A_block_p = np.empty((BLOCK, P, A_SHAPE[0], p_len))
+    for i in range(BLOCK):
+        for j in range(P):
+            p_idx = i * P + j
+            A_block_p[i][j] = A[:, p_idx*p_len: (p_idx+1)*p_len]
+    return A_block_p
+
+
 def fun_s12(A_bp, s11):
     return A_bp.T@s11
 
@@ -27,9 +39,12 @@ def fun_s12(A_bp, s11):
 # calculate blockwise diagonal of matrix A.transpose()*A
 def fun_diag_ATA(A_bp):
     BLOCK = A_bp.shape[0]
+    P = A_bp.shape[1]
     HEIGHT = A_bp.shape[2]
 
-    diag_ATA = A_bp.transpose((0, 2, 1, 3)).reshape((BLOCK, HEIGHT, -1))
+    diag_ATA = np.empty((BLOCK, HEIGHT, P*A_bp.shape[3]))
+    for i in range(BLOCK):
+        diag_ATA[i] = np.hstack(A_bp[i])
     return np.sum(np.square(diag_ATA), axis=1)[:, :, np.newaxis]
 
 
