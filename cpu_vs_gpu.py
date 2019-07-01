@@ -64,13 +64,13 @@ READ_FLAG = False
 SAVE_FLAG = False
 INSTANCE = 1
 ITER_MAX = 1000
-WARM_UP = 4
+WARM_UP = 2
 # row from 2 ** ROW_0 to 2 ** ROW_1
-ROW_0 = 12
-ROW_1 = 13
+ROW_0 = 10
+ROW_1 = 11
 # column from 2 ** (ROW+COLP_0) to 2 ** (ROW+COLP_1)
-COLP_0 = 2
-COLP_1 = 3
+COLP_0 = 4
+COLP_1 = 5
 P = 4
 
 # time and error recording array
@@ -82,6 +82,8 @@ t_lasso_cb_v2 = np.zeros_like(t_lasso)
 e_lasso = np.zeros((INSTANCE, ITER_MAX))
 e_lasso_r = np.zeros_like(e_lasso)
 e_lasso_cpu = np.zeros_like(e_lasso)
+e_lasso_cb_v1 = np.zeros_like(e_lasso)
+e_lasso_cb_v2 = np.zeros_like(e_lasso)
 e_lasso_cb = np.zeros_like(e_lasso)
 t_comp = np.zeros((INSTANCE))
 t_comp_r = np.zeros_like(t_comp)
@@ -97,14 +99,14 @@ for n_exp in np.arange(ROW_0, ROW_1):
     for k_plus in np.arange(COLP_0, COLP_1):
         k_exp = n_exp + k_plus
         K = 2 ** k_exp
-        for b_exp in np.arange(1, 2):
+        for b_exp in np.arange(2, 3):
             BLOCK = 2 ** b_exp
             for t_width in np.arange(8, 9):
                 # set thread width
                 GPU_Calculation.T_WIDTH_TRANS = 2 ** t_width
                 GPU_Calculation.T_WIDTH = 2 ** t_width
 
-                # lasso computation time
+                # reset lasso computation time
                 t_comp.fill(0)
                 t_comp_r.fill(0)
                 t_comp_cpu.fill(0)
@@ -115,9 +117,13 @@ for n_exp in np.arange(ROW_0, ROW_1):
                 t_lasso.fill(0)
                 t_lasso_r.fill(0)
                 t_lasso_cpu.fill(0)
+                t_lasso_cb_v1.fill(0)
+                t_lasso_cb_v2.fill(0)
                 e_lasso.fill(0)
                 e_lasso_r.fill(0)
                 e_lasso_cpu.fill(0)
+                e_lasso_cb_v1.fill(0)
+                e_lasso_cb_v2.fill(0)
                 time_winit = 0
 
                 for i in range(INSTANCE):
@@ -158,9 +164,9 @@ for n_exp in np.arange(ROW_0, ROW_1):
                         #     SILENCE=True,
                         #     DEBUG=False)
 
-                        lasso_cb_v1.run(SILENCE=True,
+                        lasso_cb_v1.run(SILENCE=False,
                                         DEBUG=False)
-                        lasso_cb_v2.run(SILENCE=True,
+                        lasso_cb_v2.run(SILENCE=False,
                                         DEBUG=False)
                     # '''
 
@@ -171,7 +177,6 @@ for n_exp in np.arange(ROW_0, ROW_1):
                     # t_comp_r[i] = lasso_r.run(ERR_BOUND,
                     #                           SILENCE=False)
                     # t_comp_cpu[i] = lasso_cpu.run(
-                    #     ERR_BOUND,
                     #     SILENCE=False,
                     #     DEBUG=False)
 
@@ -180,7 +185,7 @@ for n_exp in np.arange(ROW_0, ROW_1):
                         DEBUG=False)
                     t_comp_cb_v2[i] = lasso_cb_v2.run(
                         SILENCE=False,
-                        DEBUG=True)
+                        DEBUG=False)
 
                 # display results
                 # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
