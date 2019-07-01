@@ -4,7 +4,7 @@
 
 import time
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from skcuda import cublas
 import pycuda.driver as cuda
 from gpu_calculation import GPU_Calculation
@@ -18,22 +18,22 @@ import settings
 settings.init()
 
 
-def plt_fig(err_lasso, time_lasso, err_lasso_r, time_lasso_r):
-    err_log_aver = np.log10(list_aver(err_lasso))
-    time_aver = list_aver(time_lasso)
-
-    err_log_aver_r = np.log10(list_aver(err_lasso_r))
-    time_aver_r = list_aver(time_lasso_r)
-
-    fig, ax = plt.subplots()
-    ax.plot(time_aver, err_log_aver,
-            label='ascend index', color='blue')
-    ax.plot(time_aver_r, err_log_aver_r,
-            label='random index', color='red')
-    ax.legend(loc='upper right', fontsize='x-large')
-    plt.xlabel('time/s')
-    plt.ylabel('error/log10')
-    plt.show()
+# def plt_fig(err_lasso, time_lasso, err_lasso_r, time_lasso_r):
+#     err_log_aver = np.log10(list_aver(err_lasso))
+#     time_aver = list_aver(time_lasso)
+# 
+#     err_log_aver_r = np.log10(list_aver(err_lasso_r))
+#     time_aver_r = list_aver(time_lasso_r)
+# 
+#     fig, ax = plt.subplots()
+#     ax.plot(time_aver, err_log_aver,
+#             label='ascend index', color='blue')
+#     ax.plot(time_aver_r, err_log_aver_r,
+#             label='random index', color='red')
+#     ax.legend(loc='upper right', fontsize='x-large')
+#     plt.xlabel('time/s')
+#     plt.ylabel('error/log10')
+#     plt.show()
 
 
 def rlt_display(N, K, BLOCK, T_WIDTH, lasso_obj, time):
@@ -66,8 +66,8 @@ INSTANCE = 1
 ITER_MAX = 1000
 WARM_UP = 4
 # row from 2 ** ROW_0 to 2 ** ROW_1
-ROW_0 = 10
-ROW_1 = 11
+ROW_0 = 12
+ROW_1 = 13
 # column from 2 ** (ROW+COLP_0) to 2 ** (ROW+COLP_1)
 COLP_0 = 2
 COLP_1 = 3
@@ -180,7 +180,7 @@ for n_exp in np.arange(ROW_0, ROW_1):
                         DEBUG=False)
                     t_comp_cb_v2[i] = lasso_cb_v2.run(
                         SILENCE=False,
-                        DEBUG=False)
+                        DEBUG=True)
 
                 # display results
                 # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
@@ -198,5 +198,4 @@ for n_exp in np.arange(ROW_0, ROW_1):
                 # print(time_winit / INSTANCE, 's.')
                 # plt_fig(err_lasso, time_lasso, err_lasso_r, time_lasso_r)
 
-cuda.stop_profiler()
 cublas.cublasDestroy(h)
