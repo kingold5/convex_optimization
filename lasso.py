@@ -410,15 +410,6 @@ class ClassLassoCB_v2(ClassLasso):
             'rlt[i] = s13[i] - fmax(fmin(s13[i]-x[i], mu), -mu);',
             '_err_array')
 
-        self.elwise_xy = ElementwiseKernel(
-            'double *x_vec, double *y_vec',
-            'y_vec[i] = x_vec[i] * y_vec[i];',
-            'elwise_xy')
-
-        self.dot_prod = ReductionKernel(
-            np.float64, neutral='0', reduce_expr='a+b',
-            map_expr='x[i]*y[i]', arguments='double *x, double *y')
-
     def _mtv(self, handle, index, descent_D):
         alpha = 1
         beta = 0
@@ -482,188 +473,188 @@ class ClassLassoCB_v2(ClassLasso):
         idx = cublas.cublasIdamax(handle, err_gpu.size, err_gpu.gpudata, 1)
         self.error = np.abs(err_gpu[idx].get())
 
-def debug_gpu(self, handle, err_gpu, l2obj_gpu, b_k_gpu,
-              s13_gpu, x_block_gpu, mu, t, m, r):
-    if self.DEBUG:
-        self.err_get(handle, err_gpu, s13_gpu, x_block_gpu, mu)
-        self._zaxpy(handle, l2obj_gpu, -1, b_k_gpu, self.Ax_gpu[m])
-        opti_value2 = 0.5*cublas.cublasDdot(handle, l2obj_gpu.size,
-                                            l2obj_gpu.gpudata, 1,
-                                            l2obj_gpu.gpudata, 1) +\
-            mu*cublas.cublasDasum(handle, x_block_gpu.size,
-                                  x_block_gpu.gpudata, 1)
+    def debug_gpu(self, handle, err_gpu, l2obj_gpu, b_k_gpu,
+                  s13_gpu, x_block_gpu, mu, t, m, r):
+        if self.DEBUG:
+            self.err_get(handle, err_gpu, s13_gpu, x_block_gpu, mu)
+            self._zaxpy(handle, l2obj_gpu, -1, b_k_gpu, self.Ax_gpu[m])
+            opti_value2 = 0.5*cublas.cublasDdot(handle, l2obj_gpu.size,
+                                                l2obj_gpu.gpudata, 1,
+                                                l2obj_gpu.gpudata, 1) +\
+                mu*cublas.cublasDasum(handle, x_block_gpu.size,
+                                      x_block_gpu.gpudata, 1)
 
-        print('Loop {:-4} block {:-2} updated, '
-              'with Error {:.8f}, '
-              'optimum value {:4.6f}, '
-              'Stepsize {:.6f}'.format(
-                  t, m, self.error[0], opti_value2, r))
+            print('Loop {:-4} block {:-2} updated, '
+                  'with Error {:.8f}, '
+                  'optimum value {:4.6f}, '
+                  'Stepsize {:.6f}'.format(
+                      t, m, self.error[0], opti_value2, r))
 
-def run(self, ERR_BOUND=None, err_iter=None, time_iter=None,
-        SILENCE=False, DEBUG=False):
-    # initialize
-    self.DEBUG = DEBUG
-    if isinstance(ERR_BOUND, float):
-        IS_BOUNDED = True
-    else:
-        IS_BOUNDED = False
-
-    if isinstance(err_iter, np.ndarray):
-        self.ERR_RCD = True
-    else:
-        self.ERR_RCD = False
-
-        if isinstance(time_iter, np.ndarray):
-            self.TIME_RCD = True
+    def run(self, ERR_BOUND=None, err_iter=None, time_iter=None,
+            SILENCE=False, DEBUG=False):
+        # initialize
+        self.DEBUG = DEBUG
+        if isinstance(ERR_BOUND, float):
+            IS_BOUNDED = True
         else:
-            self.TIME_RCD = False
+            IS_BOUNDED = False
 
-        self.x.fill(0)
-        for i in range(self.BLOCK):
-            self.x_block[i].fill(0)
-            self.x_block_gpu[i].fill(0)
-            self.Ax_gpu[i].fill(0)
-        self.Ax.fill(0)
-        self.x_gpu.fill(0)
+        if isinstance(err_iter, np.ndarray):
+            self.ERR_RCD = True
+        else:
+            self.ERR_RCD = False
 
-        b_k_gpu = gpuarray.empty_like(self.b_gpu)
-        rx_gpu = gpuarray.empty_like(self.x_block_gpu[0])
-        soft_t_gpu = gpuarray.empty_like(self.x_block_gpu[0])
-        Bx_gpu = gpuarray.empty_like(self.x_block_gpu[0])
-        s11_gpu = gpuarray.zeros(
-            (self.idx_m, 1), np.float64)
-        s13_gpu = gpuarray.zeros(
-            (self.idx_n, 1), np.float64)
-        s23_gpu = gpuarray.zeros(
-            (self.idx_m, 1), np.float64)
-        d_d_gpu = gpuarray.zeros(
-            (self.idx_n, 1), np.float64)
-        d_ATA_gpu = [gpuarray.to_gpu(self.d_ATA[i])
-                     for i in range(self.BLOCK)]
-        d_ATA_rec_gpu = [gpuarray.to_gpu(1 / self.d_ATA[i])
+            if isinstance(time_iter, np.ndarray):
+                self.TIME_RCD = True
+            else:
+                self.TIME_RCD = False
+
+            self.x.fill(0)
+            for i in range(self.BLOCK):
+                self.x_block[i].fill(0)
+                self.x_block_gpu[i].fill(0)
+                self.Ax_gpu[i].fill(0)
+            self.Ax.fill(0)
+            self.x_gpu.fill(0)
+
+            b_k_gpu = gpuarray.empty_like(self.b_gpu)
+            rx_gpu = gpuarray.empty_like(self.x_block_gpu[0])
+            soft_t_gpu = gpuarray.empty_like(self.x_block_gpu[0])
+            Bx_gpu = gpuarray.empty_like(self.x_block_gpu[0])
+            s11_gpu = gpuarray.zeros(
+                (self.idx_m, 1), np.float64)
+            s13_gpu = gpuarray.zeros(
+                (self.idx_n, 1), np.float64)
+            s23_gpu = gpuarray.zeros(
+                (self.idx_m, 1), np.float64)
+            d_d_gpu = gpuarray.zeros(
+                (self.idx_n, 1), np.float64)
+            d_ATA_gpu = [gpuarray.to_gpu(self.d_ATA[i])
                          for i in range(self.BLOCK)]
-        err_gpu = gpuarray.empty_like(self.x_block_gpu[0])
-        l2obj_gpu = gpuarray.empty_like(self.b_gpu)
+            d_ATA_rec_gpu = [gpuarray.to_gpu(1 / self.d_ATA[i])
+                             for i in range(self.BLOCK)]
+            err_gpu = gpuarray.empty_like(self.x_block_gpu[0])
+            l2obj_gpu = gpuarray.empty_like(self.b_gpu)
 
-        block_Cnt = 0
+            block_Cnt = 0
 
-        start_event = cuda.Event()
-        end_event = cuda.Event()
-        time_s = 0
-        start = time.time()
-        if self.TIME_RCD:
-            time_iter[0] = 0
+            start_event = cuda.Event()
+            end_event = cuda.Event()
+            time_s = 0
+            start = time.time()
+            if self.TIME_RCD:
+                time_iter[0] = 0
 
-        cuda.start_profiler()
-        for t in range(self.ITER_MAX):
-            # select mth block
-            m = self.index_get(t)
-            '''
-            result_s11 = np.sum(self.Ax, axis=0) - self.b
-            self.s11_gpu.set(result_s11)
-            self._zmvG(self.h, self.s13_gpu, 1,
-                       self.gpu_cal.A_b_gpu[m], self.s11_gpu)
-            self.s13_gpu.get(self.result_s13)
-            rx = np.multiply(self.d_ATA[m], self.x_block[m]) -\
-                self.result_s13
-            soft_t = soft_thresholding(rx, self.mu)
-            Bx = np.multiply(self.d_ATA_rec[m], soft_t)
-            # result_s21 = Bx_p - x_p
-            descent_D = Bx-self.x_block[m]
-            self.d_d_gpu.set(descent_D)
-            self._zmvG(self.h, self.s23_gpu, 1,
-                       self.gpu_cal.A_b_cw_gpu[m], self.d_d_gpu)
-            self.s23_gpu.get(self.result_s23)
-            # result_s23 = self._mv(m, descent_D)
-            r_1 = np.transpose(result_s11) @ self.result_s23 +\
-                self.mu*(np.linalg.norm(Bx, ord=1) -
-                         np.linalg.norm(self.x_block[m], ord=1))
-            r_2 = np.transpose(self.result_s23) @ self.result_s23
-            if r_2 == 0.0:
-                print('r_2 is ZERO, could not divide ZERO!')
+            cuda.start_profiler()
+            for t in range(self.ITER_MAX):
+                # select mth block
+                m = self.index_get(t)
+                '''
+                result_s11 = np.sum(self.Ax, axis=0) - self.b
+                self.s11_gpu.set(result_s11)
+                self._zmvG(self.h, self.s13_gpu, 1,
+                           self.gpu_cal.A_b_gpu[m], self.s11_gpu)
+                self.s13_gpu.get(self.result_s13)
+                rx = np.multiply(self.d_ATA[m], self.x_block[m]) -\
+                    self.result_s13
+                soft_t = soft_thresholding(rx, self.mu)
+                Bx = np.multiply(self.d_ATA_rec[m], soft_t)
+                # result_s21 = Bx_p - x_p
+                descent_D = Bx-self.x_block[m]
+                self.d_d_gpu.set(descent_D)
+                self._zmvG(self.h, self.s23_gpu, 1,
+                           self.gpu_cal.A_b_cw_gpu[m], self.d_d_gpu)
+                self.s23_gpu.get(self.result_s23)
+                # result_s23 = self._mv(m, descent_D)
+                r_1 = np.transpose(result_s11) @ self.result_s23 +\
+                    self.mu*(np.linalg.norm(Bx, ord=1) -
+                             np.linalg.norm(self.x_block[m], ord=1))
+                r_2 = np.transpose(self.result_s23) @ self.result_s23
+                if r_2 == 0.0:
+                    print('r_2 is ZERO, could not divide ZERO!')
+                else:
+                    r = np.float64(element_proj(-r_1/r_2, 0, 1))
+                # x(t+1) = x(t)+r(Bx(t)-x(t))
+                self.x_block[m] += r*descent_D
+                # Ax(t+1)
+                self.Ax[m] += r*self.result_s23
+                '''
+
+                # '''
+                # begin pure gpu calculation
+                self.fun_b_k(b_k_gpu, m)
+                self._zaxpy(self.h, s11_gpu, -1, b_k_gpu, self.Ax_gpu[m])
+                self._zmvG(self.h, s13_gpu, 1, self.gpu_cal.A_b_gpu[m],
+                           cublas._CUBLAS_OP['N'], s11_gpu)
+                # s14
+                d_ATA_gpu[m]._elwise_multiply(
+                    self.x_block_gpu[m], rx_gpu)
+                self._axpy(self.h, -1, s13_gpu, rx_gpu)
+                self.zsoft_t(soft_t_gpu, rx_gpu, self.mu)
+                # s15
+                d_ATA_rec_gpu[m]._elwise_multiply(soft_t_gpu, Bx_gpu)
+                self._zaxpy(self.h, d_d_gpu, -1, self.x_block_gpu[m], Bx_gpu)
+                start_event.record()
+                self._zmvG(self.h, s23_gpu, 1, self.gpu_cal.A_b_gpu[m],
+                           cublas._CUBLAS_OP['T'], d_d_gpu)
+                end_event.record()
+                end_event.synchronize()
+                time_s += start_event.time_till(end_event)
+
+                # stepsize
+                # r_1g = self.r1_get(self.h, s11_gpu, s23_gpu,
+                #                    Bx_gpu, self.x_block_gpu[m])
+                temp_1 = cublas.cublasDdot(
+                    self.h, s11_gpu.size, s11_gpu.gpudata,
+                    1, s23_gpu.gpudata, 1)
+                # temp_1 = self.dot_prod(s11_gpu, s23_gpu).get()
+                temp_2 = self.mu*(
+                    cublas.cublasDasum(self.h, Bx_gpu.size, Bx_gpu.gpudata, 1) -
+                    cublas.cublasDasum(self.h, self.x_block_gpu[m].size,
+                                       self.x_block_gpu[m].gpudata, 1))
+                r_1g = temp_1 + temp_2
+                r_2g = np.square(self._l2norm(self.h, s23_gpu))
+                if r_2g == 0.0:
+                    print('r_2 is ZERO, could not divide ZERO!')
+                else:
+                    r_g = np.float64(element_proj(-r_1g/r_2g, 0, 1))
+
+                self.debug_gpu(self.h, err_gpu, l2obj_gpu, b_k_gpu, s13_gpu,
+                               self.x_block_gpu[m], self.mu, t, m, r_g)
+                # self.debug(result_s13, self.x_block[m], self.x, t, m, r)
+                # self.err_record(err_iter, result_s13, self.x_block[m], t)
+
+                # if IS_BOUNDED:
+                #     if not (self.DEBUG & self.ERR_RCD):
+                #         self.error = error_crit(
+                #             result_s13, self.x_block[m], self.mu)
+                #     if self.error < ERR_BOUND:
+                #         block_Cnt += 1
+                #     if self.BLOCK - 1 == m:
+                #         if block_Cnt == self.BLOCK:
+                #             break
+                #         else:
+                #             block_Cnt = 0
+
+                self._axpy(self.h, r_g, d_d_gpu, self.x_block_gpu[m])
+                self._axpy(self.h, r_g, s23_gpu, self.Ax_gpu[m])
+
+                # print(np.allclose(self.x_block_gpu[m].get(),
+                #                   self.x_block[m]))
+                # '''
+                self.time_record(time_iter, t, start)
+                # print("matrix@vector:", time_mul,
+                #       "s, matrix.T@vector:", time_mul_t)
+
+            cuda.stop_profiler()
+            if self.TIME_RCD:
+                t_elapsed = time_iter[t]
             else:
-                r = np.float64(element_proj(-r_1/r_2, 0, 1))
-            # x(t+1) = x(t)+r(Bx(t)-x(t))
-            self.x_block[m] += r*descent_D
-            # Ax(t+1)
-            self.Ax[m] += r*self.result_s23
-            '''
+                t_elapsed = time.time() - start
 
-            # '''
-            # begin pure gpu calculation
-            self.fun_b_k(b_k_gpu, m)
-            self._zaxpy(self.h, s11_gpu, -1, b_k_gpu, self.Ax_gpu[m])
-            self._zmvG(self.h, s13_gpu, 1, self.gpu_cal.A_b_gpu[m],
-                       cublas._CUBLAS_OP['N'], s11_gpu)
-            # s14
-            d_ATA_gpu[m]._elwise_multiply(
-                self.x_block_gpu[m], rx_gpu)
-            self._axpy(self.h, -1, s13_gpu, rx_gpu)
-            self.zsoft_t(soft_t_gpu, rx_gpu, self.mu)
-            # s15
-            d_ATA_rec_gpu[m]._elwise_multiply(soft_t_gpu, Bx_gpu)
-            self._zaxpy(self.h, d_d_gpu, -1, self.x_block_gpu[m], Bx_gpu)
-            start_event.record()
-            self._zmvG(self.h, s23_gpu, 1, self.gpu_cal.A_b_gpu[m],
-                       cublas._CUBLAS_OP['T'], d_d_gpu)
-            end_event.record()
-            end_event.synchronize()
-            time_s += start_event.time_till(end_event)
+            self.rlt_display(SILENCE, t_elapsed, t)
+            self.x = np.vstack(self.x_block)
+            if not SILENCE:
+                print(str(time_s/1e3) + ' s.')
 
-            # stepsize
-            # r_1g = self.r1_get(self.h, s11_gpu, s23_gpu,
-            #                    Bx_gpu, self.x_block_gpu[m])
-            temp_1 = cublas.cublasDdot(
-                self.h, s11_gpu.size, s11_gpu.gpudata,
-                1, s23_gpu.gpudata, 1)
-            # temp_1 = self.dot_prod(s11_gpu, s23_gpu).get()
-            temp_2 = self.mu*(
-                cublas.cublasDasum(self.h, Bx_gpu.size, Bx_gpu.gpudata, 1) -
-                cublas.cublasDasum(self.h, self.x_block_gpu[m].size,
-                                   self.x_block_gpu[m].gpudata, 1))
-            r_1g = temp_1 + temp_2
-            r_2g = np.square(self._l2norm(self.h, s23_gpu))
-            if r_2g == 0.0:
-                print('r_2 is ZERO, could not divide ZERO!')
-            else:
-                r_g = np.float64(element_proj(-r_1g/r_2g, 0, 1))
-
-            self.debug_gpu(self.h, err_gpu, l2obj_gpu, b_k_gpu, s13_gpu,
-                           self.x_block_gpu[m], self.mu, t, m, r_g)
-            # self.debug(result_s13, self.x_block[m], self.x, t, m, r)
-            # self.err_record(err_iter, result_s13, self.x_block[m], t)
-
-            # if IS_BOUNDED:
-            #     if not (self.DEBUG & self.ERR_RCD):
-            #         self.error = error_crit(
-            #             result_s13, self.x_block[m], self.mu)
-            #     if self.error < ERR_BOUND:
-            #         block_Cnt += 1
-            #     if self.BLOCK - 1 == m:
-            #         if block_Cnt == self.BLOCK:
-            #             break
-            #         else:
-            #             block_Cnt = 0
-
-            self._axpy(self.h, r_g, d_d_gpu, self.x_block_gpu[m])
-            self._axpy(self.h, r_g, s23_gpu, self.Ax_gpu[m])
-
-            # print(np.allclose(self.x_block_gpu[m].get(),
-            #                   self.x_block[m]))
-            # '''
-            self.time_record(time_iter, t, start)
-            # print("matrix@vector:", time_mul,
-            #       "s, matrix.T@vector:", time_mul_t)
-
-        cuda.stop_profiler()
-        if self.TIME_RCD:
-            t_elapsed = time_iter[t]
-        else:
-            t_elapsed = time.time() - start
-
-        self.rlt_display(SILENCE, t_elapsed, t)
-        self.x = np.vstack(self.x_block)
-        if not SILENCE:
-            print(str(time_s/1e3) + ' s.')
-
-        return t_elapsed
+            return t_elapsed
