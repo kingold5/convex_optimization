@@ -11,9 +11,11 @@ import time
 import numpy as np
 import random
 from pycuda import gpuarray
+import pycuda.driver as cuda
 import pycuda.autoinit
 from skcuda import cublas
 from pycuda.elementwise import ElementwiseKernel
+from pycuda.reduction import ReductionKernel
 from cpu_calculation import element_proj, soft_thresholding, error_crit,\
         fun_s12, fun_s22, fun_dd_p
 import settings
@@ -220,6 +222,8 @@ class ClassLasso(ClassLassoCPU):
 
         block_Cnt = 0
 
+        start_event = cuda.Event()
+        end_event = cuda.Event()
         time_s = 0
         start = time.time()
         if self.TIME_RCD:
@@ -231,9 +235,13 @@ class ClassLasso(ClassLassoCPU):
             result_s11 = np.sum(Ax, axis=0) - self.b
 
             # result_s13 = gpu_cal.mat_tmulvec(m, result_s11)
-            start_s = time.time()
+            # start_s = time.time()
+            start_event.record()
             self._mtv(result_s13, m, result_s11)
-            time_s += time.time() - start_s
+            end_event.record()
+            end_event.synchronize()
+            time_s += start_event.time_till(end_event)
+            # time_s += time.time() - start_s
 
             # s14
             rx = np.multiply(self.d_ATA[m], x_block[m]) - result_s13
@@ -287,7 +295,7 @@ class ClassLasso(ClassLassoCPU):
         self.rlt_display(SILENCE, t_elapsed, t)
         x = np.vstack(x_block)
         if not SILENCE:
-            print(self.descript + ': ' + str(time_s) + ' s.')
+            print(str(time_s/1e3) + ' s.')
 
         return t_elapsed
 
@@ -397,6 +405,20 @@ class ClassLassoCB_v2(ClassLasso):
             ''',
             'zsoft_t')
 
+        self._err_array = ElementwiseKernel(
+            'double *rlt, double *s13, double *x, double mu',
+            'rlt[i] = s13[i] - fmax(fmin(s13[i]-x[i], mu), -mu);',
+            '_err_array')
+
+        self.elwise_xy = ElementwiseKernel(
+            'double *x_vec, double *y_vec',
+            'y_vec[i] = x_vec[i] * y_vec[i];',
+            'elwise_xy')
+
+        self.dot_prod = ReductionKernel(
+            np.float64, neutral='0', reduce_expr='a+b',
+            map_expr='x[i]*y[i]', arguments='double *x, double *y')
+
     def _mtv(self, handle, index, descent_D):
         alpha = 1
         beta = 0
@@ -455,19 +477,41 @@ class ClassLassoCB_v2(ClassLasso):
                 self.mu*(self._l1norm(handle, Bx_gpu) -
                          self._l1norm(handle, x_block_gpu))
 
-    def run(self, ERR_BOUND=None, err_iter=None, time_iter=None,
-            SILENCE=False, DEBUG=False):
-        # initialize
-        self.DEBUG = DEBUG
-        if isinstance(ERR_BOUND, float):
-            IS_BOUNDED = True
-        else:
-            IS_BOUNDED = False
+    def err_get(self, handle, err_gpu, s13_gpu, x_block_gpu, mu):
+        self._err_array(err_gpu, s13_gpu, x_block_gpu, mu)
+        idx = cublas.cublasIdamax(handle, err_gpu.size, err_gpu.gpudata, 1)
+        self.error = np.abs(err_gpu[idx].get())
 
-        if isinstance(err_iter, np.ndarray):
-            self.ERR_RCD = True
-        else:
-            self.ERR_RCD = False
+def debug_gpu(self, handle, err_gpu, l2obj_gpu, b_k_gpu,
+              s13_gpu, x_block_gpu, mu, t, m, r):
+    if self.DEBUG:
+        self.err_get(handle, err_gpu, s13_gpu, x_block_gpu, mu)
+        self._zaxpy(handle, l2obj_gpu, -1, b_k_gpu, self.Ax_gpu[m])
+        opti_value2 = 0.5*cublas.cublasDdot(handle, l2obj_gpu.size,
+                                            l2obj_gpu.gpudata, 1,
+                                            l2obj_gpu.gpudata, 1) +\
+            mu*cublas.cublasDasum(handle, x_block_gpu.size,
+                                  x_block_gpu.gpudata, 1)
+
+        print('Loop {:-4} block {:-2} updated, '
+              'with Error {:.8f}, '
+              'optimum value {:4.6f}, '
+              'Stepsize {:.6f}'.format(
+                  t, m, self.error[0], opti_value2, r))
+
+def run(self, ERR_BOUND=None, err_iter=None, time_iter=None,
+        SILENCE=False, DEBUG=False):
+    # initialize
+    self.DEBUG = DEBUG
+    if isinstance(ERR_BOUND, float):
+        IS_BOUNDED = True
+    else:
+        IS_BOUNDED = False
+
+    if isinstance(err_iter, np.ndarray):
+        self.ERR_RCD = True
+    else:
+        self.ERR_RCD = False
 
         if isinstance(time_iter, np.ndarray):
             self.TIME_RCD = True
@@ -498,13 +542,19 @@ class ClassLassoCB_v2(ClassLasso):
                      for i in range(self.BLOCK)]
         d_ATA_rec_gpu = [gpuarray.to_gpu(1 / self.d_ATA[i])
                          for i in range(self.BLOCK)]
+        err_gpu = gpuarray.empty_like(self.x_block_gpu[0])
+        l2obj_gpu = gpuarray.empty_like(self.b_gpu)
+
         block_Cnt = 0
 
+        start_event = cuda.Event()
+        end_event = cuda.Event()
         time_s = 0
         start = time.time()
         if self.TIME_RCD:
             time_iter[0] = 0
 
+        cuda.start_profiler()
         for t in range(self.ITER_MAX):
             # select mth block
             m = self.index_get(t)
@@ -553,8 +603,12 @@ class ClassLassoCB_v2(ClassLasso):
             # s15
             d_ATA_rec_gpu[m]._elwise_multiply(soft_t_gpu, Bx_gpu)
             self._zaxpy(self.h, d_d_gpu, -1, self.x_block_gpu[m], Bx_gpu)
+            start_event.record()
             self._zmvG(self.h, s23_gpu, 1, self.gpu_cal.A_b_gpu[m],
                        cublas._CUBLAS_OP['T'], d_d_gpu)
+            end_event.record()
+            end_event.synchronize()
+            time_s += start_event.time_till(end_event)
 
             # stepsize
             # r_1g = self.r1_get(self.h, s11_gpu, s23_gpu,
@@ -562,12 +616,11 @@ class ClassLassoCB_v2(ClassLasso):
             temp_1 = cublas.cublasDdot(
                 self.h, s11_gpu.size, s11_gpu.gpudata,
                 1, s23_gpu.gpudata, 1)
-            start_s = time.time()
+            # temp_1 = self.dot_prod(s11_gpu, s23_gpu).get()
             temp_2 = self.mu*(
                 cublas.cublasDasum(self.h, Bx_gpu.size, Bx_gpu.gpudata, 1) -
                 cublas.cublasDasum(self.h, self.x_block_gpu[m].size,
                                    self.x_block_gpu[m].gpudata, 1))
-            time_s += time.time() - start_s
             r_1g = temp_1 + temp_2
             r_2g = np.square(self._l2norm(self.h, s23_gpu))
             if r_2g == 0.0:
@@ -575,6 +628,8 @@ class ClassLassoCB_v2(ClassLasso):
             else:
                 r_g = np.float64(element_proj(-r_1g/r_2g, 0, 1))
 
+            self.debug_gpu(self.h, err_gpu, l2obj_gpu, b_k_gpu, s13_gpu,
+                           self.x_block_gpu[m], self.mu, t, m, r_g)
             # self.debug(result_s13, self.x_block[m], self.x, t, m, r)
             # self.err_record(err_iter, result_s13, self.x_block[m], t)
 
@@ -600,6 +655,7 @@ class ClassLassoCB_v2(ClassLasso):
             # print("matrix@vector:", time_mul,
             #       "s, matrix.T@vector:", time_mul_t)
 
+        cuda.stop_profiler()
         if self.TIME_RCD:
             t_elapsed = time_iter[t]
         else:
@@ -608,6 +664,6 @@ class ClassLassoCB_v2(ClassLasso):
         self.rlt_display(SILENCE, t_elapsed, t)
         self.x = np.vstack(self.x_block)
         if not SILENCE:
-            print(self.descript + ': ' + str(time_s) + ' s.')
+            print(str(time_s/1e3) + ' s.')
 
         return t_elapsed
