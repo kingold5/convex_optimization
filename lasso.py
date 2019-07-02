@@ -167,9 +167,12 @@ class ClassLassoCPU:
                         block_Cnt = 0
 
             # x(t+1) = x(t)+r(Bx(t)-x(t))
-            x_block[m] += r*(Bx-x_block[m])
+            x_block[m] += r*descent_D
             # Ax(t+1)
             Ax[m] += r*result_s23
+            opti_value2 = 0.5*np.sum(np.power(Ax[m]-b_k, 2)) +\
+                self.mu*np.sum(np.abs(x_block[m]))
+            print(opti_value2)
 
             self.time_record(time_iter, t, start)
             # print("matrix@vector:", time_mul,
