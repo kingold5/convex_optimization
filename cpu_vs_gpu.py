@@ -6,34 +6,54 @@ import time
 import numpy as np
 # import matplotlib.pyplot as plt
 from skcuda import cublas
-import pycuda.driver as cuda
 from gpu_calculation import GPU_Calculation
 from cpu_calculation import A_bp_get, fun_diag_ATA
 from parameters import parameters
 from lasso import ClassLasso, ClassLassoR, ClassLassoCPU,\
         ClassLassoCB_v1, ClassLassoCB_v2
-from average import list_aver
 import settings
 
 settings.init()
 
 
-# def plt_fig(err_lasso, time_lasso, err_lasso_r, time_lasso_r):
-#     err_log_aver = np.log10(list_aver(err_lasso))
-#     time_aver = list_aver(time_lasso)
-# 
-#     err_log_aver_r = np.log10(list_aver(err_lasso_r))
-#     time_aver_r = list_aver(time_lasso_r)
-# 
-#     fig, ax = plt.subplots()
-#     ax.plot(time_aver, err_log_aver,
-#             label='ascend index', color='blue')
-#     ax.plot(time_aver_r, err_log_aver_r,
-#             label='random index', color='red')
-#     ax.legend(loc='upper right', fontsize='x-large')
-#     plt.xlabel('time/s')
-#     plt.ylabel('error/log10')
-#     plt.show()
+"""
+def list_aver(perform):
+    max_len = 0
+    for i in range(len(perform)):
+        max_len = np.maximum(max_len, len(perform[i]))
+
+    average = []
+    for i in range(max_len):
+        nzero_cnt = 0
+        p_value = 0
+
+        for j in range(len(perform)):
+            if i < len(perform[j]):
+                nzero_cnt += 1
+                p_value += perform[j][i]
+
+        if nzero_cnt:
+            average.append(p_value / nzero_cnt)
+
+    return average
+
+
+def plt_fig(err_lasso, time_lasso, err_lasso_r, time_lasso_r):
+    err_log_aver = np.log10(list_aver(err_lasso))
+    time_aver = list_aver(time_lasso)
+
+    err_log_aver_r = np.log10(list_aver(err_lasso_r))
+    time_aver_r = list_aver(time_lasso_r)
+    fig, ax = plt.subplots()
+    ax.plot(time_aver, err_log_aver,
+            label='ascend index', color='blue')
+    ax.plot(time_aver_r, err_log_aver_r,
+            label='random index', color='red')
+    ax.legend(loc='upper right', fontsize='x-large')
+    plt.xlabel('time/s')
+    plt.ylabel('error/log10')
+    plt.show()
+"""
 
 
 def rlt_display(N, K, BLOCK, T_WIDTH, lasso_obj, time):
@@ -66,11 +86,14 @@ INSTANCE = 1
 ITER_MAX = 1000
 WARM_UP = 2
 # row from 2 ** ROW_0 to 2 ** ROW_1
-ROW_0 = 10
-ROW_1 = 11
+ROW_0 = 8
+ROW_1 = 9
 # column from 2 ** (ROW+COLP_0) to 2 ** (ROW+COLP_1)
-COLP_0 = 4
-COLP_1 = 5
+COLP_0 = 1
+COLP_1 = 2
+# block num from 2 ** BLK_0 to 2 ** BLK_1
+BLK_0 = 1
+BLK_1 = 2
 P = 4
 
 # time and error recording array
@@ -99,7 +122,7 @@ for n_exp in np.arange(ROW_0, ROW_1):
     for k_plus in np.arange(COLP_0, COLP_1):
         k_exp = n_exp + k_plus
         K = 2 ** k_exp
-        for b_exp in np.arange(2, 3):
+        for b_exp in np.arange(BLK_0, BLK_1):
             BLOCK = 2 ** b_exp
             for t_width in np.arange(8, 9):
                 # set thread width
@@ -135,7 +158,7 @@ for n_exp in np.arange(ROW_0, ROW_1):
 
                     t_init = time.time()
                     gpu_cal = GPU_Calculation(A, BLOCK)
-                    # A_block_p = A_bp_get(A, BLOCK, P)
+                    A_block_p = A_bp_get(A, BLOCK, P)
                     d_ATA = gpu_cal.diag_ATA
                     # d_ATA_c = fun_diag_ATA(A_block_p)
 
@@ -143,15 +166,15 @@ for n_exp in np.arange(ROW_0, ROW_1):
                     #                    BLOCK, ITER_MAX)
                     # lasso_r = ClassLassoR(gpu_cal, d_ATA, A, b,
                     #                       mu, BLOCK, ITER_MAX)
-                    # lasso_cpu = ClassLassoCPU(A_block_p, d_ATA, A,
-                    #                           b, mu, BLOCK, P, ITER_MAX)
-                    lasso_cb_v1 = ClassLassoCB_v1(h, gpu_cal, d_ATA, A,
-                                                  b, mu, BLOCK, ITER_MAX)
-                    lasso_cb_v2 = ClassLassoCB_v2(h, gpu_cal, d_ATA, A,
-                                                  b, mu, BLOCK, ITER_MAX)
+                    lasso_cpu = ClassLassoCPU(A_block_p, d_ATA, A,
+                                              b, mu, BLOCK, P, ITER_MAX)
+                    # lasso_cb_v1 = ClassLassoCB_v1(h, gpu_cal, d_ATA, A,
+                    #                               b, mu, BLOCK, ITER_MAX)
+                    # lasso_cb_v2 = ClassLassoCB_v2(h, gpu_cal, d_ATA, A,
+                    #                               b, mu, BLOCK, ITER_MAX)
                     time_winit += time.time() - t_init
 
-                    # '''
+                    '''
                     # let gpu warmup
                     for _ in range(WARM_UP):
                         # lasso.run(SILENCE=True,
@@ -168,7 +191,7 @@ for n_exp in np.arange(ROW_0, ROW_1):
                                         DEBUG=False)
                         lasso_cb_v2.run(SILENCE=False,
                                         DEBUG=False)
-                    # '''
+                    '''
 
                     # run instances
                     # t_comp[i] = lasso.run(
@@ -176,28 +199,28 @@ for n_exp in np.arange(ROW_0, ROW_1):
                     #     DEBUG=False)
                     # t_comp_r[i] = lasso_r.run(ERR_BOUND,
                     #                           SILENCE=False)
-                    # t_comp_cpu[i] = lasso_cpu.run(
+                    t_comp_cpu[i] = lasso_cpu.run(
+                        SILENCE=False,
+                        DEBUG=False)
+
+                    # t_comp_cb_v1[i] = lasso_cb_v1.run(
                     #     SILENCE=False,
                     #     DEBUG=False)
-
-                    t_comp_cb_v1[i] = lasso_cb_v1.run(
-                        SILENCE=False,
-                        DEBUG=False)
-                    t_comp_cb_v2[i] = lasso_cb_v2.run(
-                        SILENCE=False,
-                        DEBUG=False)
+                    # t_comp_cb_v2[i] = lasso_cb_v2.run(
+                    #     SILENCE=False,
+                    #     DEBUG=False)
 
                 # display results
                 # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
                 #             lasso, t_comp)
                 # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
                 #             lasso_r, t_comp_r)
+                rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
+                            lasso_cpu, t_comp_cpu)
                 # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
-                #             lasso_cpu, t_comp_cpu)
-                rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
-                            lasso_cb_v1, t_comp_cb_v1)
-                rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
-                            lasso_cb_v2, t_comp_cb_v2)
+                #             lasso_cb_v1, t_comp_cb_v1)
+                # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
+                #             lasso_cb_v2, t_comp_cb_v2)
                 print('')
 
                 # print(time_winit / INSTANCE, 's.')
