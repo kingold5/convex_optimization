@@ -83,17 +83,17 @@ READ_FLAG = False
 # save parameters or not
 SAVE_FLAG = False
 INSTANCE = 1
-ITER_MAX = 1000
+ITER_MAX = 100
 WARM_UP = 2
 # row from 2 ** ROW_0 to 2 ** ROW_1
-ROW_0 = 8
-ROW_1 = 9
+ROW_0 = 10
+ROW_1 = 11
 # column from 2 ** (ROW+COLP_0) to 2 ** (ROW+COLP_1)
-COLP_0 = 1
-COLP_1 = 2
+COLP_0 = 3
+COLP_1 = 4
 # block num from 2 ** BLK_0 to 2 ** BLK_1
-BLK_0 = 1
-BLK_1 = 2
+BLK_0 = 2
+BLK_1 = 3
 P = 4
 
 # time and error recording array
@@ -162,65 +162,60 @@ for n_exp in np.arange(ROW_0, ROW_1):
                     d_ATA = gpu_cal.diag_ATA
                     # d_ATA_c = fun_diag_ATA(A_block_p)
 
-                    # lasso = ClassLasso(gpu_cal, d_ATA, A, b, mu,
-                    #                    BLOCK, ITER_MAX)
-                    # lasso_r = ClassLassoR(gpu_cal, d_ATA, A, b,
-                    #                       mu, BLOCK, ITER_MAX)
                     lasso_cpu = ClassLassoCPU(A_block_p, d_ATA, A,
                                               b, mu, BLOCK, P, ITER_MAX)
-                    # lasso_cb_v1 = ClassLassoCB_v1(h, gpu_cal, d_ATA, A,
-                    #                               b, mu, BLOCK, ITER_MAX)
-                    # lasso_cb_v2 = ClassLassoCB_v2(h, gpu_cal, d_ATA, A,
-                    #                               b, mu, BLOCK, ITER_MAX)
+                    lasso = ClassLasso(gpu_cal, d_ATA, A, b, mu,
+                                       BLOCK, ITER_MAX)
+                    # lasso_r = ClassLassoR(gpu_cal, d_ATA, A, b,
+                    #                       mu, BLOCK, ITER_MAX)
+                    lasso_cb_v1 = ClassLassoCB_v1(h, gpu_cal, d_ATA, A,
+                                                  b, mu, BLOCK, ITER_MAX)
+                    lasso_cb_v2 = ClassLassoCB_v2(h, gpu_cal, d_ATA, A,
+                                                  b, mu, BLOCK, ITER_MAX)
                     time_winit += time.time() - t_init
 
-                    '''
+                    # '''
                     # let gpu warmup
                     for _ in range(WARM_UP):
-                        # lasso.run(SILENCE=True,
-                        #           DEBUG=False)
+                        lasso.run(SILENCE=True,
+                                  DEBUG=False)
                         # lasso_r.run(ERR_BOUND,
                         #             DEBUG=False,
                         #             SILENCE=True)
-                        # lasso_cpu.run(
-                        #     ERR_BOUND,
-                        #     SILENCE=True,
-                        #     DEBUG=False)
 
-                        lasso_cb_v1.run(SILENCE=False,
+                        lasso_cb_v1.run(SILENCE=True,
                                         DEBUG=False)
-                        lasso_cb_v2.run(SILENCE=False,
+                        lasso_cb_v2.run(SILENCE=True,
                                         DEBUG=False)
-                    '''
+                    # '''
 
                     # run instances
-                    # t_comp[i] = lasso.run(
-                    #     SILENCE=False,
-                    #     DEBUG=False)
-                    # t_comp_r[i] = lasso_r.run(ERR_BOUND,
-                    #                           SILENCE=False)
                     t_comp_cpu[i] = lasso_cpu.run(
                         SILENCE=False,
                         DEBUG=False)
-
-                    # t_comp_cb_v1[i] = lasso_cb_v1.run(
-                    #     SILENCE=False,
-                    #     DEBUG=False)
-                    # t_comp_cb_v2[i] = lasso_cb_v2.run(
-                    #     SILENCE=False,
-                    #     DEBUG=False)
+                    t_comp[i] = lasso.run(
+                        SILENCE=False,
+                        DEBUG=False)
+                    # t_comp_r[i] = lasso_r.run(ERR_BOUND,
+                    #                           SILENCE=False)
+                    t_comp_cb_v1[i] = lasso_cb_v1.run(
+                        SILENCE=False,
+                        DEBUG=False)
+                    t_comp_cb_v2[i] = lasso_cb_v2.run(
+                        SILENCE=False,
+                        DEBUG=False)
 
                 # display results
-                # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
-                #             lasso, t_comp)
+                rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
+                            lasso_cpu, t_comp_cpu)
+                rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
+                            lasso, t_comp)
                 # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
                 #             lasso_r, t_comp_r)
                 rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
-                            lasso_cpu, t_comp_cpu)
-                # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
-                #             lasso_cb_v1, t_comp_cb_v1)
-                # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
-                #             lasso_cb_v2, t_comp_cb_v2)
+                            lasso_cb_v1, t_comp_cb_v1)
+                rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
+                            lasso_cb_v2, t_comp_cb_v2)
                 print('')
 
                 # print(time_winit / INSTANCE, 's.')
