@@ -5,12 +5,14 @@
 import time
 import numpy as np
 # import matplotlib.pyplot as plt
+import pycuda.driver as cuda
 from skcuda import cublas
 from gpu_calculation import GPU_Calculation
-from cpu_calculation import A_bp_get, fun_diag_ATA
+from cpu_calculation import A_bp_get
 from parameters import parameters
 from lasso import ClassLasso, ClassLassoR, ClassLassoCPU,\
-        ClassLassoCB_v1, ClassLassoCB_v2
+        ClassLassoCB_v1, ClassLassoCB_v2, ClassLassoCPUEEC,\
+        ClassLassoEEC, ClassLassoCB_v1EEC, ClassLassoCB_v2EEC
 import settings
 
 settings.init()
@@ -75,19 +77,19 @@ def rlt_display(N, K, BLOCK, T_WIDTH, lasso_obj, time):
 
 
 # density of sparse vector
-DENSITY = 0.4
+DENSITY = 0.1
 # error bound
-ERR_BOUND = 1e-4
+ERR_BOUND = 1e-04
 # generating or load parameters
 READ_FLAG = False
 # save parameters or not
 SAVE_FLAG = False
 INSTANCE = 1
-ITER_MAX = 100
-WARM_UP = 2
+ITER_MAX = 1000
+WARM_UP = 4
 # row from 2 ** ROW_0 to 2 ** ROW_1
-ROW_0 = 10
-ROW_1 = 11
+ROW_0 = 12
+ROW_1 = 13
 # column from 2 ** (ROW+COLP_0) to 2 ** (ROW+COLP_1)
 COLP_0 = 3
 COLP_1 = 4
@@ -159,63 +161,94 @@ for n_exp in np.arange(ROW_0, ROW_1):
                     t_init = time.time()
                     gpu_cal = GPU_Calculation(A, BLOCK)
                     A_block_p = A_bp_get(A, BLOCK, P)
-                    d_ATA = gpu_cal.diag_ATA
+                    d_ATA = gpu_cal.d_ATA
                     # d_ATA_c = fun_diag_ATA(A_block_p)
 
-                    lasso_cpu = ClassLassoCPU(A_block_p, d_ATA, A,
-                                              b, mu, BLOCK, P, ITER_MAX)
-                    lasso = ClassLasso(gpu_cal, d_ATA, A, b, mu,
-                                       BLOCK, ITER_MAX)
+                    lasso_cpu = ClassLassoCPU(
+                        A_block_p, d_ATA, A, b, mu, BLOCK, P, ITER_MAX)
+                    lasso_cpu_eec = ClassLassoCPUEEC(
+                        A_block_p, d_ATA, A, b, mu, BLOCK, P, ITER_MAX)
+                    lasso = ClassLasso(
+                        gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX)
+                    lasso_eec = ClassLassoEEC(
+                        gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX)
                     # lasso_r = ClassLassoR(gpu_cal, d_ATA, A, b,
                     #                       mu, BLOCK, ITER_MAX)
-                    lasso_cb_v1 = ClassLassoCB_v1(h, gpu_cal, d_ATA, A,
-                                                  b, mu, BLOCK, ITER_MAX)
-                    lasso_cb_v2 = ClassLassoCB_v2(h, gpu_cal, d_ATA, A,
-                                                  b, mu, BLOCK, ITER_MAX)
+                    lasso_cb_v1 = ClassLassoCB_v1(
+                        h, gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX)
+                    lasso_cb_v1_eec = ClassLassoCB_v1EEC(
+                        h, gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX)
+                    lasso_cb_v2 = ClassLassoCB_v2(
+                        h, gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX)
+                    lasso_cb_v2_eec = ClassLassoCB_v2EEC(
+                        h, gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX)
                     time_winit += time.time() - t_init
 
-                    # '''
                     # let gpu warmup
                     for _ in range(WARM_UP):
                         lasso.run(SILENCE=True,
                                   DEBUG=False)
+                        lasso_eec.run(SILENCE=True, DEBUG=False)
                         # lasso_r.run(ERR_BOUND,
                         #             DEBUG=False,
                         #             SILENCE=True)
 
-                        lasso_cb_v1.run(SILENCE=True,
-                                        DEBUG=False)
-                        lasso_cb_v2.run(SILENCE=True,
-                                        DEBUG=False)
-                    # '''
+                        lasso_cb_v1.run(SILENCE=True, DEBUG=False)
+                        lasso_cb_v1_eec.run(SILENCE=True, DEBUG=False)
+                        lasso_cb_v2.run(SILENCE=True, DEBUG=False)
+                        lasso_cb_v2_eec.run(SILENCE=True, DEBUG=False)
 
                     # run instances
+                    """
                     t_comp_cpu[i] = lasso_cpu.run(
+                        ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
+                    lasso_cpu_eec.run(
+                        ERR_BOUND,
+                        SILENCE=False,
+                        DEBUG=False)
+                    """
                     t_comp[i] = lasso.run(
+                        ERR_BOUND,
+                        SILENCE=False,
+                        DEBUG=False)
+                    lasso_eec.run(
+                        ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
                     # t_comp_r[i] = lasso_r.run(ERR_BOUND,
                     #                           SILENCE=False)
                     t_comp_cb_v1[i] = lasso_cb_v1.run(
+                        ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
+                    lasso_cb_v1_eec.run(
+                        ERR_BOUND,
+                        SILENCE=False,
+                        DEBUG=False)
+                    cuda.start_profiler()
                     t_comp_cb_v2[i] = lasso_cb_v2.run(
+                        ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
+                    lasso_cb_v2_eec.run(
+                        ERR_BOUND,
+                        SILENCE=False,
+                        DEBUG=False)
+                    cuda.stop_profiler()
 
                 # display results
-                rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
-                            lasso_cpu, t_comp_cpu)
-                rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
-                            lasso, t_comp)
+                # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
+                #             lasso_cpu, t_comp_cpu)
+                # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
+                #             lasso, t_comp)
                 # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
                 #             lasso_r, t_comp_r)
-                rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
-                            lasso_cb_v1, t_comp_cb_v1)
-                rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
-                            lasso_cb_v2, t_comp_cb_v2)
+                # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
+                #             lasso_cb_v1, t_comp_cb_v1)
+                # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
+                #             lasso_cb_v2, t_comp_cb_v2)
                 print('')
 
                 # print(time_winit / INSTANCE, 's.')
