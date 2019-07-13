@@ -129,7 +129,7 @@ unsigned int index_m) {
     if (threadxInd < MAT_WIDTH) {
         for(int i = 0; i < MAT_HEIGHT; i++) {
             k = i*MAT_WIDTH+threadxInd;
-            pValue += mat[k] * mat[k];
+            pValue += pow(mat[k], 2.0f);
         }
 
         result[threadxInd] = pValue;
@@ -167,6 +167,7 @@ class GPU_Calculation:
             "mul_mat_vec_diffsize")
         self.get_diag_ATA = mod.get_function("get_diag_ATA")
         # self.mat_transpose = mod.get_function("mat_transpose")
+        self.diag_ATA()
 
     def init_cpu_array(self, A):
         self.A_b = np.hsplit(A, self.Block)
@@ -243,10 +244,9 @@ class GPU_Calculation:
         # self.result_at_diffsize_gpu = gpuarray.to_gpu(
         #     self.result_at_diffsize)
 
-    @property
     def diag_ATA(self):
-        d_ATA = np.empty((self.Block, self.MAT_WIDTH, 1), np.float64)
-        self.d_ATA_gpu = gpuarray.to_gpu(d_ATA)
+        self.d_ATA = np.empty((self.Block, self.MAT_WIDTH, 1), np.float64)
+        self.d_ATA_gpu = gpuarray.to_gpu(self.d_ATA)
 
         block_threads = 1024
         block_cols_d = np.int((self.MAT_WIDTH+block_threads-1) /
@@ -258,7 +258,7 @@ class GPU_Calculation:
                 block=(block_threads, 1, 1),
                 grid=(block_cols_d, 1, 1))
 
-        return self.d_ATA_gpu.get()
+        self.d_ATA_gpu.get(self.d_ATA)
 
     # matrix.T@vector for different size matrix for cuda
     def mat_tMulVec_DiffSize(self, s13, index_m, s11):
