@@ -15,7 +15,7 @@ def element_proj(vec, lower_bound, upper_bound):
 def error_crit(grad_fx, x, mu):
     projection = element_proj(grad_fx-x, -mu, mu)
     # l2 norm
-    # return np.linalg.norm(grad_fx-projection)
+    # return np.linalg.norm(grad_fx-projection, ord=2)
     # l infinity norm
     return np.max(np.abs(grad_fx-projection))
 
@@ -44,7 +44,3 @@ def fun_diag_ATA(A_bp):
 
 def fun_s22(A_bp, s21):
     return A_bp@s21
-
-
-def fun_dd_p(P, descent_d):
-    return descent_d.reshape((P, -1, 1))
