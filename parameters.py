@@ -23,6 +23,8 @@ def parameters(N, K, den, SAVE_FLAG, READ_FLAG, SILENCE=False):
         # dimension (K,1)
         x_true = sparse.random(K, 1, density=den, format="csc",
                                data_rvs=np.random.randn)
+        # x_true = np.zeros((K, 1))
+        # x_true[0: 50, 0] = 1
         # vector b with dimension (N,1), b=A*x_true+e
         # with e i.i.d. gaussian distribution mean 0, variance 1e-4
         mean = 0
@@ -30,7 +32,7 @@ def parameters(N, K, den, SAVE_FLAG, READ_FLAG, SILENCE=False):
         e = np.random.normal(mean, SD, (N, 1))
         b = A@x_true + e
         # regularization value mu, mu=0.1*|A^T*b|_inf
-        mu = 0.1*np.max(np.abs(np.dot(np.transpose(A), b)))
+        mu = 0.1*np.max(np.abs(np.transpose(A) @ b))
 
         if not SILENCE:
             print("Parameters @@created with N: %d" % N,
