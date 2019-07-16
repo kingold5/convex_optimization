@@ -809,7 +809,7 @@ class ClassLassoCB_v2(ClassLasso):
             # s15
             self.d_ATA_rec_gpu[m]._elwise_multiply(
                 self.soft_t_gpu, self.Bx_gpu)
-            # start_fun.record()
+            start_fun.record()
             self.allclose(self.close_gpu, self.Bx_gpu, self.x_block_gpu[m],
                           1e-05, 1e-04)
             if self.close_gpu.get()[0] == 0.0:
@@ -825,9 +825,9 @@ class ClassLassoCB_v2(ClassLasso):
                         self.bnd_flag = 4
             else:
                 self.close_gpu.fill(0)
-            # end_fun.record()
-            # end_fun.synchronize()
-            # time_f += start_fun.time_till(end_fun)
+            end_fun.record()
+            end_fun.synchronize()
+            time_f += start_fun.time_till(end_fun)
 
             self._zaxpy(
                 self.h, self.d_d_gpu, -1, self.x_block_gpu[m], self.Bx_gpu)
@@ -868,8 +868,8 @@ class ClassLassoCB_v2(ClassLasso):
 
         self.rlt_display(SILENCE, t_elapsed, t)
         self.x = np.vstack(self.x_block)
-        # if not SILENCE:
-        #     print(str(time_f/1e3) + ' s.')
+        if not SILENCE:
+            print(str(time_f/1e3) + ' s.')
 
         return t_elapsed
 
@@ -906,16 +906,16 @@ class ClassLassoCB_v2EEC(ClassLassoCB_v2):
             self._zaxpy(self.h, self.s11_gpu, -1, self.b_k_gpu, self.Ax_gpu[m])
             self._zmvG(self.h, self.s13_gpu, 1, self.gpu_cal.A_b_gpu[m],
                        cublas._CUBLAS_OP['N'], self.s11_gpu)
-            # start_fun.record()
+            start_fun.record()
             self.bnd_chk(self.h, m, ERR_BOUND)
             if self.IS_BOUNDED:
                 if self.bnd_flag == 0:
                     break
                 elif self.bnd_flag == 1:
                     continue
-            # end_fun.record()
-            # end_fun.synchronize()
-            # time_f += start_fun.time_till(end_fun)
+            end_fun.record()
+            end_fun.synchronize()
+            time_f += start_fun.time_till(end_fun)
 
             # s14
             self.d_ATA_gpu[m]._elwise_multiply(
@@ -971,7 +971,7 @@ class ClassLassoCB_v2EEC(ClassLassoCB_v2):
 
         self.rlt_display(SILENCE, t_elapsed, t)
         self.x = np.vstack(self.x_block)
-        # if not SILENCE:
-        #     print(str(time_f/1e3) + ' s.')
+        if not SILENCE:
+            print(str(time_f/1e3) + ' s.')
 
         return t_elapsed
