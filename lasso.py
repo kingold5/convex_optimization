@@ -198,8 +198,8 @@ class ClassLassoCPU:
 
             # stepsize
             r_1 = np.transpose(self.result_s11) @ self.result_s23 +\
-                self.mu*(np.linalg.norm(self.Bx, ord=1) -
-                         np.linalg.norm(self.x_block[m], ord=1))
+                self.mu*(np.sum(np.abs(self.Bx) -
+                         np.sum(np.abs(self.x_block[m]))
             r_2 = np.transpose(self.result_s23) @ self.result_s23
             if r_2 == 0.0:
                 print('r_2 is ZERO, could not divide ZERO!')
@@ -288,8 +288,8 @@ class ClassLassoCPUEEC(ClassLassoCPU):
 
             # stepsize
             r_1 = np.transpose(self.result_s11) @ self.result_s23 +\
-                self.mu*(np.linalg.norm(self.Bx, ord=1) -
-                         np.linalg.norm(self.x_block[m], ord=1))
+                self.mu*(np.sum(np.abs(self.Bx) -
+                         np.sum(np.abs(self.x_block[m]))
             r_2 = np.transpose(self.result_s23) @ self.result_s23
             if r_2 == 0.0:
                 print('r_2 is ZERO, could not divide ZERO!')
