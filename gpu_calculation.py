@@ -15,6 +15,7 @@ kernel_code_template = Template("""
 #define TYPE {{TYPE}}
 #define BLOCK_DIM 16
 //#include <math.h>
+#include <pycuda-complex.hpp>
 
 
 __global__ void mul_mat_t_vec_diffsize(TYPE *result, TYPE *mat,
@@ -135,6 +136,30 @@ unsigned int index_m) {
         result[threadxInd] = pValue;
     }
 }
+
+
+__global__ void get_diag_ATA_c(pycuda::complex<double> *result, pycuda::complex<double> *mat,
+unsigned int index_m){
+    __shared__ int blockxInd;
+
+    if (threadIdx.x == 0) {
+        blockxInd = blockIdx.x * blockDim.x;
+    }
+    __syncthreads();
+
+    pycuda::complex<double> pValue(0, 0);
+    int k;
+
+    int threadxInd = blockxInd + threadIdx.x;
+    if (threadxInd < MAT_WIDTH) {
+        for (int i = 0; i < MAT_HEIGHT; i++) {
+            k = i + threadxInd * MAT_HEIGHT;
+            pValue += conj(mat[k]) * mat[k];
+        }
+
+        result[threadxInd] = pValue;
+    }
+}
 """)
 
 
@@ -146,6 +171,11 @@ class GPU_Calculation:
     TYPE = 'double'
 
     def __init__(self, A, Block):
+        if A.dtype == 'float64':
+            self.TYPE = 'double'
+        elif A.dtype == 'float32':
+            self.TYPE = 'float'
+            
         self.Block = Block
         self.MAT_WIDTH_ALL = A.shape[1]
         self.init_cpu_array(A)
@@ -166,13 +196,11 @@ class GPU_Calculation:
         self.mul_mat_vec_diffsize = mod.get_function(
             "mul_mat_vec_diffsize")
         self.get_diag_ATA = mod.get_function("get_diag_ATA")
+        self.get_diag_ATA_c = mod.get_function("get_diag_ATA_c")
         # self.mat_transpose = mod.get_function("mat_transpose")
-        self.diag_ATA()
 
     def init_cpu_array(self, A):
-        self.A_b = np.hsplit(A, self.Block)
-        self.A_b = np.asarray(self.A_b).astype(np.float64)
-        # self.A_b_cw = self.A_b.swapaxes(-1, -2).copy()
+        self.A_b = A.transpose().reshape(self.Block, -1, A.shape[0]).swapaxes(-1, -2)
         self.MAT_HEIGHT, self.MAT_WIDTH = self.A_b[0].shape
 
         # -----------------------------------------------------------
@@ -222,8 +250,10 @@ class GPU_Calculation:
 
     def init_gpu_array(self):
         float64_size = np.dtype(np.float64).itemsize
-        self.A_b_gpu = gpuarray.to_gpu(self.A_b)
-        del self.A_b
+        if self.A_b.dtype == 'float64':
+            self.A_b_gpu = gpuarray.to_gpu(self.A_b.copy())
+        elif self.A_b.dtype == 'complex128':
+            self.A_b_gpu = gpuarray.to_gpu(self.A_b.swapaxes(-1, -2).copy())
         # self.A_b_cw_gpu = gpuarray.to_gpu(self.A_b_cw)
         self.s11_gpu = cuda.mem_alloc(float64_size*self.MAT_HEIGHT)
         self.d_d_gpu = cuda.mem_alloc(float64_size*self.MAT_WIDTH)
@@ -247,7 +277,6 @@ class GPU_Calculation:
     def diag_ATA(self):
         self.d_ATA = np.empty((self.Block, self.MAT_WIDTH, 1), np.float64)
         self.d_ATA_gpu = gpuarray.to_gpu(self.d_ATA)
-
         block_threads = 1024
         block_cols_d = np.int((self.MAT_WIDTH+block_threads-1) /
                               block_threads)
@@ -259,6 +288,21 @@ class GPU_Calculation:
                 grid=(block_cols_d, 1, 1))
 
         self.d_ATA_gpu.get(self.d_ATA)
+
+    def diag_ATA_c(self):
+        self.d_ATA_c = np.empty((self.Block, self.MAT_WIDTH, 1), np.complex128)
+        self.d_ATA_c_gpu = gpuarray.to_gpu(self.d_ATA_c)
+        block_threads = 1024
+        block_cols_d = np.int((self.MAT_WIDTH+block_threads-1) /
+                              block_threads)
+
+        for index in range(self.Block):
+            self.get_diag_ATA_c(
+                self.d_ATA_c_gpu[index], self.A_b_gpu[index], np.int32(index),
+                block=(block_threads, 1, 1),
+                grid=(block_cols_d, 1, 1))
+
+        self.d_ATA_c_gpu.get(self.d_ATA_c)
 
     # matrix.T@vector for different size matrix for cuda
     def mat_tMulVec_DiffSize(self, s13, index_m, s11):
