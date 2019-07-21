@@ -42,5 +42,16 @@ def fun_diag_ATA(A_bp):
     return np.sum(np.square(diag_ATA), axis=1)[:, :, np.newaxis]
 
 
+# calculate blockwise complex diagonal of matrix A.transpose() * A
+def fun_diag_ATA_c(A_bp):
+    BLOCK = A_bp.shape[0]
+    HEIGHT = A_bp.shape[2]
+
+    diag_ATA = A_bp.swapaxes(-1, -2).reshape(
+        BLOCK, -1, HEIGHT).swapaxes(-1, -2)
+
+    return np.sum(diag_ATA.conj() * diag_ATA, axis=1)[..., np.newaxis]
+
+
 def fun_s22(A_bp, s21):
     return A_bp@s21
