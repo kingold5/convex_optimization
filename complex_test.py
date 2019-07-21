@@ -8,7 +8,7 @@ Created on Tue Jul 16 20:06:00 2019
 
 import numpy as np
 from parameters import parameters_comp
-from cpu_calculation import element_proj, fun_diag_ATA_c, A_bp_get
+from cpu_calculation import fun_diag_ATA_c, A_bp_get
 from gpu_calculation import GPU_Calculation
 from lasso import ClassLassoCPU, ClassLasso, ClassLassoCB_v1,\
     ClassLassoCB_v2
@@ -75,7 +75,6 @@ class ClassLassoCPUComp(ClassLassoCPU):
         if r_2 == 0.0 + 1j*0.0:
             print('r_2 is ZERO, could not divide ZERO')
         else:
-            # return np.float64(element_proj(-r1/r2, 0, 1))
             return np.minimum(np.maximum(-r_1/r_2, 0), 1)
 
 
