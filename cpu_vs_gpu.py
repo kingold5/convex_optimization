@@ -86,16 +86,17 @@ READ_FLAG = False
 SAVE_FLAG = False
 INSTANCE = 1
 ITER_MAX = 1000
-WARM_UP = 4
+ITER_MAX_R = 400
+WARM_UP = 5
 # row from 2 ** ROW_0 to 2 ** ROW_1
-ROW_0 = 12
-ROW_1 = 13
+ROW_0 = 10
+ROW_1 = 11
 # column from 2 ** (ROW+COLP_0) to 2 ** (ROW+COLP_1)
 COLP_0 = 3
 COLP_1 = 4
 # block num from 2 ** BLK_0 to 2 ** BLK_1
-BLK_0 = 2
-BLK_1 = 3
+BLK_0 = 0
+BLK_1 = 1
 P = 4
 
 # time and error recording array
@@ -155,88 +156,104 @@ for n_exp in np.arange(ROW_0, ROW_1):
                     # every random seed is unique
                     time.sleep(1)
                     (A, x_true, b, mu) = parameters(
-                        N, K, DENSITY,
-                        SAVE_FLAG, READ_FLAG, SILENCE=False)
+                        N, K, DENSITY, SAVE_FLAG, READ_FLAG, SILENCE=False)
 
                     t_init = time.time()
                     gpu_cal = GPU_Calculation(A, BLOCK)
                     A_block_p = A_bp_get(A, BLOCK, P)
+                    gpu_cal.diag_ATA()
                     d_ATA = gpu_cal.d_ATA
                     # d_ATA_c = fun_diag_ATA(A_block_p)
 
                     lasso_cpu = ClassLassoCPU(
-                        A_block_p, d_ATA, A, b, mu, BLOCK, P, ITER_MAX)
+                        A_block_p, d_ATA, A, b, mu, BLOCK, P)
                     lasso_cpu_eec = ClassLassoCPUEEC(
-                        A_block_p, d_ATA, A, b, mu, BLOCK, P, ITER_MAX)
+                        A_block_p, d_ATA, A, b, mu, BLOCK, P)
                     lasso = ClassLasso(
-                        gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX)
+                        gpu_cal, d_ATA, A, b, mu, BLOCK)
                     lasso_eec = ClassLassoEEC(
-                        gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX)
+                        gpu_cal, d_ATA, A, b, mu, BLOCK)
                     # lasso_r = ClassLassoR(gpu_cal, d_ATA, A, b,
-                    #                       mu, BLOCK, ITER_MAX)
+                    #                       mu, BLOCK)
                     lasso_cb_v1 = ClassLassoCB_v1(
-                        h, gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX)
+                        h, gpu_cal, d_ATA, A, b, mu, BLOCK)
                     lasso_cb_v1_eec = ClassLassoCB_v1EEC(
-                        h, gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX)
+                        h, gpu_cal, d_ATA, A, b, mu, BLOCK)
                     lasso_cb_v2 = ClassLassoCB_v2(
-                        h, gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX)
+                        h, gpu_cal, A, b, mu, BLOCK)
                     lasso_cb_v2_eec = ClassLassoCB_v2EEC(
-                        h, gpu_cal, d_ATA, A, b, mu, BLOCK, ITER_MAX)
+                        h, gpu_cal, A, b, mu, BLOCK)
                     time_winit += time.time() - t_init
 
                     # let gpu warmup
                     for _ in range(WARM_UP):
-                        lasso.run(SILENCE=True,
+                        """
+                        lasso.run(ITER_MAX,
+                                  SILENCE=True,
                                   DEBUG=False)
-                        lasso_eec.run(SILENCE=True, DEBUG=False)
+                        lasso_eec.run(ITER_MAX,
+                                      SILENCE=True,
+                                      DEBUG=False)
+                        """
                         # lasso_r.run(ERR_BOUND,
                         #             DEBUG=False,
                         #             SILENCE=True)
-
-                        lasso_cb_v1.run(SILENCE=True, DEBUG=False)
-                        lasso_cb_v1_eec.run(SILENCE=True, DEBUG=False)
-                        lasso_cb_v2.run(SILENCE=True, DEBUG=False)
-                        lasso_cb_v2_eec.run(SILENCE=True, DEBUG=False)
+                        lasso_cb_v1.run(ITER_MAX, ERR_BOUND=ERR_BOUND,
+                                        SILENCE=True, DEBUG=False)
+                        lasso_cb_v1_eec.run(ITER_MAX, ERR_BOUND=ERR_BOUND,
+                                            SILENCE=True, DEBUG=False)
+                        lasso_cb_v2.run(ITER_MAX, ERR_BOUND=ERR_BOUND,
+                                        SILENCE=True, DEBUG=False)
+                        lasso_cb_v2_eec.run(ITER_MAX, ERR_BOUND=ERR_BOUND,
+                                            SILENCE=True, DEBUG=False)
 
                     # run instances
-                    """
+                    """                    
                     t_comp_cpu[i] = lasso_cpu.run(
-                        ERR_BOUND,
+                        ITER_MAX,
+                        ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
                     lasso_cpu_eec.run(
-                        ERR_BOUND,
+                        ITER_MAX,
+                        ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
-                    """
                     t_comp[i] = lasso.run(
-                        ERR_BOUND,
+                        ITER_MAX_R,
+                        ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
                     lasso_eec.run(
-                        ERR_BOUND,
+                        ITER_MAX_R,
+                        ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
+                    """
                     # t_comp_r[i] = lasso_r.run(ERR_BOUND,
                     #                           SILENCE=False)
                     t_comp_cb_v1[i] = lasso_cb_v1.run(
-                        ERR_BOUND,
+                        ITER_MAX_R,
+                        ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
                     lasso_cb_v1_eec.run(
-                        ERR_BOUND,
+                        ITER_MAX_R,
+                        ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
                     cuda.start_profiler()
                     t_comp_cb_v2[i] = lasso_cb_v2.run(
-                        ERR_BOUND,
-                        SILENCE=False,
-                        DEBUG=False)
-                    lasso_cb_v2_eec.run(
-                        ERR_BOUND,
+                        ITER_MAX_R,
+                        ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
                     cuda.stop_profiler()
+                    lasso_cb_v2_eec.run(
+                        ITER_MAX_R,
+                        ERR_BOUND=ERR_BOUND,
+                        SILENCE=False,
+                        DEBUG=False)
 
                 # display results
                 # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
