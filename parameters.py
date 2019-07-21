@@ -19,23 +19,25 @@ def parameters(N, K, den, SAVE_FLAG, READ_FLAG, SILENCE=False):
         A = A/(np.linalg.norm(A, ord=2, axis=1, keepdims=True))
         # true sparse vector x_true with element value [0, 1]
         # dimension (K,1)
-        # x_true = sparse.random(K, 1, density=den, format="csr",
-        #                        data_rvs=np.random.randn)
-        x_true = np.zeros((K, 1))
-        x_true[0: 50, 0] = 1
+        x_true = sparse.random(K, 1, density=den, format="csr",
+                               data_rvs=np.random.randn)
+        x_true = x_true.toarray()
+        # x_true = np.zeros((K, 1))
+        # x_true[20: 80, 0] = np.random.randn(60)
         # vector b with dimension (N,1), b=A*x_true+e
         # with e i.i.d. gaussian distribution mean 0, variance 1e-4
         mean = 0
         SD = np.sqrt(1e-4)
         e = np.random.normal(mean, SD, (N, 1))
         # convert scipy sparse array to numpy array for calculation in numpy
-        b = A@x_true.toarray() + e
+        b = A@x_true + e
         # regularization value mu, mu=0.1*|A^T*b|_inf
         mu = 0.1*np.max(np.abs(A.T @ b))
 
+        megas = N*K*8/float(1<<20)
         if not SILENCE:
             print("Real parameters @@created with N: %d" % N,
-                  ", K: %d" % K,
+                  ", K: %d" % K, ", %f MB" % megas,
                   ", DENSITY: %f" % den,
                   ", mu: %f." % mu)
 
@@ -50,9 +52,10 @@ def parameters(N, K, den, SAVE_FLAG, READ_FLAG, SILENCE=False):
         N, K, DENSITY, mu = np.loadtxt(
             settings.HOME + "/Documents/python/parameters.txt")
 
+        megas = N*K*8/float(1<<20)
         if not SILENCE:
             print("Real parameters @@loaded with N: %d" % N,
-                  ", K: %d" % K,
+                  ", K: %d" % K, ", %f MB" % megas,
                   ", DENSITY: %f" % DENSITY,
                   ", mu: %f" % mu, ".")
 
@@ -60,7 +63,7 @@ def parameters(N, K, den, SAVE_FLAG, READ_FLAG, SILENCE=False):
         np.savetxt(settings.HOME+"/Documents/python/A_matrix.txt",
                    A, delimiter=",")
         np.savetxt(settings.HOME+"/Documents/python/x_true.txt",
-                   x_true.todense())
+                   x_true)
         np.savetxt(settings.HOME+"/Documents/python/b_vector.txt", b)
         np.savetxt(settings.HOME+"/Documents/python/parameters.txt",
                    [N, K, den, mu])
@@ -94,9 +97,10 @@ def parameters_comp(N, K, den, SAVE_FLAG, READ_FLAG, SILENCE=False):
         # regularization value mu, mu=0.1*|A^T*b|_inf
         mu = 0.1*np.max(np.abs(A_comp.conj().T @ b_c))
 
+        megas = N*K*8/float(1<<20)
         if not SILENCE:
             print("Complex parameters @@created with N: %d" % N,
-                  ", K: %d" % K,
+                  ", K: %d" % K, ", %f MB" % megas,
                   ", DENSITY: %f" % den,
                   ", mu: %f." % mu)
     else:
@@ -105,16 +109,15 @@ def parameters_comp(N, K, den, SAVE_FLAG, READ_FLAG, SILENCE=False):
                             delimiter=",").view(np.complex128)
         x_true_c = np.loadtxt(
             settings.HOME+"/Documents/python/x_true_comp.txt").view(np.complex128)
-        x_true_c = x_true_c[:, np.newaxis]
         b_c = np.loadtxt(
             settings.HOME+"/Documents/python/b_vector_comp.txt").view(np.complex128)
-        b_c = b_c[:, np.newaxis]
         N, K, DENSITY, mu = np.loadtxt(
             settings.HOME + "/Documents/python/parameters_comp.txt")
 
+        megas = N*K*8/float(1<<20)
         if not SILENCE:
             print("Complex parameters @@loaded with N: %d" % N,
-                  ", K: %d" % K,
+                  ", K: %d" % K, ", %f MB" % megas,
                   ", DENSITY: %f" % DENSITY,
                   ", mu: %f" % mu, ".")
 
