@@ -101,17 +101,10 @@ class ClassLassoCPU:
             if m != i:
                 self.b_k -= self.Ax[i]
 
-    def debug(self, DEBUG, pool, t, m, r):
+    def debug(self, DEBUG, t, m, r):
         if DEBUG:
-            self.result_s11 = self.Ax[m] - self.b_k
-            result_s12 = pool.starmap(
-                self.fun_s12, product(self.A_block_p[m], (self.result_s11,)))
-            np.concatenate(result_s12, axis=0, out=self.result_s13)
-            self.error = self.error_crit(m)
-            # calculate objective function w.r.t. x
-            # opti_value2 = 0.5*np.sum(np.square(self.A@x-self.b)) +\
-            #     self.mu*np.sum(np.abs(x))
-            # calculate objective function w.r.t. x_block
+            if not (self.TIME_RCD or self.IS_BOUNDED):
+                self.error = self.error_crit(m)
             opti_value2 = 0.5*np.sum(np.square(self.result_s11)) +\
                 self.mu*np.sum(np.abs(self.x_block[m]))
             print('Loop {:-4} block {:-2} updated, '
@@ -178,11 +171,8 @@ class ClassLassoCPU:
 
         self.block_Cnt = 0
         self.bnd_flag = -1
-
-        start = time.time()
-        if self.TIME_RCD:
-            time_iter[0] = 0
         pool = Pool(processes=self.P)
+        start = time.time()
         for t in range(ITER_MAX):
             # select mth block
             m = self.index_get(t)
@@ -238,7 +228,7 @@ class ClassLassoCPU:
             self.x_block[m] += r*self.descent_D
             # A@x update
             self.Ax[m] += r*self.result_s23
-            self.debug(DEBUG, pool, t, m, r)
+            self.debug(DEBUG, t, m, r)
 
         t_elapsed = time.time() - start
         if self.TIME_RCD:
@@ -261,10 +251,8 @@ class ClassLassoCPUEEC(ClassLassoCPU):
         self.block_Cnt = 0
         self.bnd_flag = -1
 
-        start = time.time()
-        if self.TIME_RCD:
-            time_iter[0] = 0
         pool = Pool(processes=self.P)
+        start = time.time()
         for t in range(ITER_MAX):
             # select mth block
             m = self.index_get(t)
@@ -312,7 +300,7 @@ class ClassLassoCPUEEC(ClassLassoCPU):
             self.x_block[m] += r*self.descent_D
             # A@x update
             self.Ax[m] += r*self.result_s23
-            self.debug(DEBUG, pool, t, m, r)
+            self.debug(DEBUG, t, m, r)
 
         t_elapsed = time.time() - start
         if self.TIME_RCD:
@@ -347,12 +335,7 @@ class ClassLasso(ClassLassoCPU):
 
     def debug(self, DEBUG, t, m, r):
         if DEBUG:
-            self.result_s11 = self.Ax[m] - self.b_k
-            self._mtv(m)
             self.error = self.error_crit(m)
-            # calculate objective function w.r.t. x
-            # opti_value2 = 0.5*np.sum(np.square(self.A@x-self.b)) +\
-            #     self.mu*np.sum(np.abs(x))
             # calculate objective function w.r.t. x_block
             opti_value2 = 0.5*np.sum(np.square(self.result_s11)) +\
                 self.mu*np.sum(np.abs(self.x_block[m]))
@@ -378,8 +361,6 @@ class ClassLasso(ClassLassoCPU):
         time_f = 0
 
         start = time.time()
-        if self.TIME_RCD:
-            time_iter[0] = 0
         for t in range(ITER_MAX):
             # select mth block
             m = self.index_get(t)
@@ -457,14 +438,11 @@ class ClassLassoEEC(ClassLasso):
 
         self.block_Cnt = 0
         self.bnd_flag = -1
-
         start_fun = cuda.Event()
         end_fun = cuda.Event()
         time_f = 0
 
         start = time.time()
-        if self.TIME_RCD:
-            time_iter[0] = 0
         for t in range(ITER_MAX):
             # select mth block
             m = self.index_get(t)
@@ -688,10 +666,6 @@ class ClassLassoCB_v2(ClassLasso):
 
     def debug_gpu(self, handle, DEBUG, t, m, r):
         if DEBUG:
-            self._zaxpy(self.h, self.s11_gpu, -1, self.b_k_gpu, self.Ax_gpu[m])
-            self._zmvG(self.h, self.s13_gpu, 1, self.gpu_cal.A_b_gpu[m],
-                       cublas._CUBLAS_OP['N'], self.s11_gpu)
-            self.err_chk(handle, m)
             opti_value2 = 0.5*cublas.cublasDdot(
                 handle, self.s11_gpu.size, self.s11_gpu.gpudata, 1,
                 self.s11_gpu.gpudata, 1) +\
@@ -705,12 +679,12 @@ class ClassLassoCB_v2(ClassLasso):
                   'Stepsize {:.6f}'.format(
                       t, m, self.error, opti_value2, r))
 
-    def err_record_gpu(self, handle, err_iter, m, t):
+    def err_record_g(self, handle, err_iter, m, t):
         if self.ERR_RCD:
             self._err_chk(handle, m)
             err_iter[t] = self.error
 
-    def time_record_gpu(self, time_iter, t, start_event, end_event):
+    def time_record_g(self, time_iter, t, start_event, end_event):
         if self.TIME_RCD:
             end_event.record()
             end_event.synchronize()
@@ -732,8 +706,6 @@ class ClassLassoCB_v2(ClassLasso):
         end_event = cuda.Event()
         time_f = 0
         start_event.record()
-        if self.TIME_RCD:
-            time_iter[0] = 0
         # cuda.start_profiler()
         for t in range(ITER_MAX):
             # select mth block
@@ -749,8 +721,8 @@ class ClassLassoCB_v2(ClassLasso):
                                1, self.gpu_cal.A_b_gpu[m].gpudata, self.idx_n,
                                self.s11_gpu.gpudata, 1, 0, self.s13_gpu.gpudata, 1)
             # time and error record
-            self.err_record_gpu(self.h, err_iter, m, t)
-            self.time_record_gpu(time_iter, t, start_event, end_event)
+            self.err_record_g(self.h, err_iter, m, t)
+            self.time_record_g(time_iter, t, start_event, end_event)
             # rx = diag * x_block
             self.d_ATA_gpu[m]._elwise_multiply(self.x_block_gpu[m], self.rx_gpu)
             # rx = rx - s13
@@ -841,9 +813,6 @@ class ClassLassoCB_v2EEC(ClassLassoCB_v2):
         end_event = cuda.Event()
         time_f = 0
         start_event.record()
-        if self.TIME_RCD:
-            time_iter[0] = 0
-
         # cuda.start_profiler()
         for t in range(ITER_MAX):
             # select mth block
@@ -859,8 +828,8 @@ class ClassLassoCB_v2EEC(ClassLassoCB_v2):
                                1, self.gpu_cal.A_b_gpu[m].gpudata, self.idx_n,
                                self.s11_gpu.gpudata, 1, 0, self.s13_gpu.gpudata, 1)
             # error and time record
-            self.err_record_gpu(self.h, err_iter, m, t)
-            self.time_record_gpu(time_iter, t, start_event, end_event)
+            self.err_record_g(self.h, err_iter, m, t)
+            self.time_record_g(time_iter, t, start_event, end_event)
             # start_fun.record()
             self.bnd_chk(self.h, m, ERR_BOUND)
             if self.IS_BOUNDED:
