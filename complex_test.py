@@ -56,11 +56,6 @@ class ClassLassoCPUComp(ClassLassoCPU):
                    np.minimum(np.abs(self.g_x_dif), 0.5*self.mu) *
                    self.g_x_dif / np.abs(self.g_x_dif)))
 
-    def err_record(self, err_iter, m, t):
-        if self.ERR_RCD:
-            self.error = self.error_crit(m)
-            err_iter[t] = self.error
-
     def fun_s12(self, A_bp, s11):
         return A_bp.conj().T @ s11
 
@@ -188,14 +183,14 @@ class ClassLassoCB_v2comp(ClassLassoCB_v2):
         self.zero_gpu = gpuarray.zeros(1, np.float64)
         self.mu_gpu = gpuarray.zeros(1, np.float64)
         self.mu_gpu.fill(self.mu)
-        
+
     def _zmvG(self, handle, z_gpu, alpha, m_gpu, trans, v_gpu):
         # z = a * m @ v complex
         cublas.cublasZgemv(handle, trans, self.idx_m, self.idx_n,
                            alpha, m_gpu.gpudata, self.idx_m,
                            v_gpu.gpudata, 1, 0+1j*0,
                            z_gpu.gpudata, 1)
-        
+
     def fun_b_k(self, k):
         cublas.cublasZcopy(self.h, self.b_gpu.size,
                            self.b_gpu.gpudata, 1,
@@ -206,7 +201,7 @@ class ClassLassoCB_v2comp(ClassLassoCB_v2):
                                    np.float64(-1),
                                    self.Ax_gpu[i].gpudata,
                                    1, self.b_k_gpu.gpudata, 1)
-                
+
     def stepsize(self, m):
         self._elwise_abs(self.Bx_abs_gpu, self.Bx_gpu)
         self._elwise_abs(self.x_abs_gpu, self.x_block_gpu[m])
@@ -247,9 +242,6 @@ class ClassLassoCB_v2comp(ClassLassoCB_v2):
         end_event = cuda.Event()
         time_f = 0
         start_event.record()
-        if self.TIME_RCD:
-            time_iter[0] = 0
-
         for t in range(ITER_MAX):
             # select mth block
             m = self.index_get(t)
@@ -264,7 +256,8 @@ class ClassLassoCB_v2comp(ClassLassoCB_v2):
                                1+1j*0, self.gpu_cal.A_b_gpu[m].gpudata, self.idx_m,
                                self.s11_gpu.gpudata, 1, 0+1j*0, self.s13_gpu.gpudata, 1)
             # error & time record
-            self.err_record_gpu(self.h, err_iter, m, t)
+            self.err_record_g(self.h, err_iter, m, t)
+            self.time_record_g(time_iter, t, start_event, end_event)
             # rx = diag * x
             self.d_ATA_gpu[m]._elwise_multiply(self.x_block_gpu[m], self.rx_gpu)
             # rx = -s13 + rx
@@ -303,31 +296,25 @@ class ClassLassoCB_v2comp(ClassLassoCB_v2):
                                self.d_d_gpu.gpudata, 1, 0+1j*0, self.s23_gpu.gpudata, 1)
             # stepsize
             r_g = self.stepsize(m)
-
-            # TODO err_record_gpu
-
             self.bnd_chk(self.h, m, ERR_BOUND)
             if self.IS_BOUNDED:
                 if self.bnd_flag == 0:
                     break
                 elif self.bnd_flag == 1:
                     continue
-
+            # x_block update
             cublas.cublasZaxpy(self.h, self.d_d_gpu.size, r_g,
                                self.d_d_gpu.gpudata, 1, self.x_block_gpu[m].gpudata, 1)
+            # A@x update
             cublas.cublasZaxpy(self.h, self.s23_gpu.size, r_g,
                                self.s23_gpu.gpudata, 1, self.Ax_gpu[m].gpudata, 1)
             # TODO debug_gpu
 
-            self.time_record_gpu(time_iter, t, start_event, end_event)
-
         end_event.record()
         end_event.synchronize()
+        t_elapsed = start_event.time_till(end_event) / 1e3
         if self.TIME_RCD:
-            t_elapsed = time_iter[t]
-        else:
-            t_elapsed = start_event.time_till(end_event) / 1e3
-
+            time_iter -= time_iter[0]
         self.rlt_display(SILENCE, t_elapsed, t)
         self.x_block_gpu.get(self.x_block)
         self.x = np.vstack(self.x_block)
@@ -338,14 +325,14 @@ class ClassLassoCB_v2comp(ClassLassoCB_v2):
 # density of sparse vector
 DENSITY = 0.1
 # error bound
-ERR_BOUND = 1e-05
+ERR_BOUND = 1e-04
 # generating or load parameters
 READ_FLAG = False
 # save parameters or not
 SAVE_FLAG = False
-ITER_MAX = 100
+ITER_MAX = 400
 WARM_UP = 4
-BLOCK = 2
+BLOCK = 1
 P = 2
 N = 2 ** 10
 K = 2 ** 13
@@ -374,7 +361,7 @@ for _ in range(WARM_UP):
     lasso_cb_v1_comp.run(ITER_MAX, ERR_BOUND=ERR_BOUND, SILENCE=True, DEBUG=False)
     lasso_cb_v2_comp.run(ITER_MAX, ERR_BOUND=ERR_BOUND, SILENCE=True, DEBUG=False)
 
-lasso_cb_v1_comp.run(ITER_MAX, ERR_BOUND=ERR_BOUND, SILENCE=False, DEBUG=False)
-lasso_cb_v2_comp.run(ITER_MAX, ERR_BOUND=ERR_BOUND, SILENCE=False, DEBUG=False)
+lasso_cb_v1_comp.run(ITER_MAX, SILENCE=False, DEBUG=False)
+lasso_cb_v2_comp.run(ITER_MAX, SILENCE=False, DEBUG=False)
 
 cublas.cublasDestroy(h)
