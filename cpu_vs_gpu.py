@@ -79,84 +79,53 @@ def rlt_display(N, K, BLOCK, T_WIDTH, lasso_obj, time):
 # density of sparse vector
 DENSITY = 0.1
 # error bound
-ERR_BOUND = 1e-04
+ERR_BOUND = 1e-03
 # generating or load parameters
 READ_FLAG = False
 # save parameters or not
 SAVE_FLAG = False
 INSTANCE = 1
 ITER_MAX = 1000
-ITER_MAX_R = 400
+ITER_MAX_R = 2000
 WARM_UP = 5
 # row from 2 ** ROW_0 to 2 ** ROW_1
-ROW_0 = 10
-ROW_1 = 11
+ROW_0 = 11
+ROW_1 = 12
 # column from 2 ** (ROW+COLP_0) to 2 ** (ROW+COLP_1)
-COLP_0 = 3
-COLP_1 = 4
+COLP_0 = 4
+COLP_1 = 5
 # block num from 2 ** BLK_0 to 2 ** BLK_1
 BLK_0 = 0
-BLK_1 = 1
+BLK_1 = 5
 P = 4
 
 # time and error recording array
-t_lasso = np.zeros((INSTANCE, ITER_MAX+1))
-t_lasso_r = np.zeros_like(t_lasso)
-t_lasso_cpu = np.zeros_like(t_lasso)
-t_lasso_cb_v1 = np.zeros_like(t_lasso)
-t_lasso_cb_v2 = np.zeros_like(t_lasso)
-e_lasso = np.zeros((INSTANCE, ITER_MAX))
-e_lasso_r = np.zeros_like(e_lasso)
-e_lasso_cpu = np.zeros_like(e_lasso)
-e_lasso_cb_v1 = np.zeros_like(e_lasso)
-e_lasso_cb_v2 = np.zeros_like(e_lasso)
-e_lasso_cb = np.zeros_like(e_lasso)
-t_comp = np.zeros((INSTANCE))
-t_comp_r = np.zeros_like(t_comp)
-t_comp_cpu = np.zeros_like(t_comp)
-t_comp_cb_v1 = np.zeros_like(t_comp)
-t_comp_cb_v2 = np.zeros_like(t_comp)
-
+t_lasso = np.zeros(ITER_MAX)
+e_lasso = np.zeros(ITER_MAX)
+kwargs = {}
 # initial cublas context
 h = cublas.cublasCreate()
 
 for n_exp in np.arange(ROW_0, ROW_1):
+    # row number of matrix A
     N = 2 ** n_exp
     for k_plus in np.arange(COLP_0, COLP_1):
+        # column number of matrix A
         k_exp = n_exp + k_plus
         K = 2 ** k_exp
-        for b_exp in np.arange(BLK_0, BLK_1):
-            BLOCK = 2 ** b_exp
-            for t_width in np.arange(8, 9):
-                # set thread width
-                GPU_Calculation.T_WIDTH_TRANS = 2 ** t_width
-                GPU_Calculation.T_WIDTH = 2 ** t_width
-
+        for i in range(INSTANCE):
+            # every random seed is unique
+            time.sleep(1)
+            (A, x_true, b, mu) = parameters(
+                N, K, DENSITY, SAVE_FLAG, READ_FLAG, SILENCE=False)
+            for b_exp in np.arange(BLK_0, BLK_1):
+                BLOCK = 2 ** b_exp
                 # reset lasso computation time
-                t_comp.fill(0)
-                t_comp_r.fill(0)
-                t_comp_cpu.fill(0)
-                t_comp_cb_v1.fill(0)
-                t_comp_cb_v2.fill(0)
-
-                # reset time & error recording array
-                t_lasso.fill(0)
-                t_lasso_r.fill(0)
-                t_lasso_cpu.fill(0)
-                t_lasso_cb_v1.fill(0)
-                t_lasso_cb_v2.fill(0)
-                e_lasso.fill(0)
-                e_lasso_r.fill(0)
-                e_lasso_cpu.fill(0)
-                e_lasso_cb_v1.fill(0)
-                e_lasso_cb_v2.fill(0)
                 time_winit = 0
-
-                for i in range(INSTANCE):
-                    # every random seed is unique
-                    time.sleep(1)
-                    (A, x_true, b, mu) = parameters(
-                        N, K, DENSITY, SAVE_FLAG, READ_FLAG, SILENCE=False)
+                for t_width in np.arange(8, 9):
+                    # set thread width
+                    GPU_Calculation.T_WIDTH_TRANS = 2 ** t_width
+                    GPU_Calculation.T_WIDTH = 2 ** t_width
 
                     t_init = time.time()
                     gpu_cal = GPU_Calculation(A, BLOCK)
@@ -209,7 +178,7 @@ for n_exp in np.arange(ROW_0, ROW_1):
 
                     # run instances
                     """                    
-                    t_comp_cpu[i] = lasso_cpu.run(
+                    t_exe_cpu[i] = lasso_cpu.run(
                         ITER_MAX,
                         ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
@@ -219,7 +188,7 @@ for n_exp in np.arange(ROW_0, ROW_1):
                         ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
-                    t_comp[i] = lasso.run(
+                    t_exe[i] = lasso.run(
                         ITER_MAX_R,
                         ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
@@ -232,22 +201,34 @@ for n_exp in np.arange(ROW_0, ROW_1):
                     """
                     # t_comp_r[i] = lasso_r.run(ERR_BOUND,
                     #                           SILENCE=False)
-                    t_comp_cb_v1[i] = lasso_cb_v1.run(
-                        ITER_MAX_R,
-                        ERR_BOUND=ERR_BOUND,
-                        SILENCE=False,
-                        DEBUG=False)
                     lasso_cb_v1_eec.run(
                         ITER_MAX_R,
                         ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
-                    cuda.start_profiler()
-                    t_comp_cb_v2[i] = lasso_cb_v2.run(
+                    lasso_cb_v1.run(
                         ITER_MAX_R,
+                        ERR_BOUND=ERR_BOUND,
+                        time_iter=t_lasso,
+                        err_iter=e_lasso,
+                        SILENCE=False,
+                        DEBUG=False)
+                    kwargs = dict(kwargs,
+                                  t_cb_v1=np.trim_zeros(t_lasso, 'b').copy(),
+                                  e_cb_v1=np.trim_zeros(e_lasso, 'b').copy()) 
+                    e_lasso.fill(0)
+                    t_lasso.fill(0)
+                    cuda.start_profiler()
+                    lasso_cb_v2.run(
+                        ITER_MAX_R,
+                        time_iter=t_lasso,
+                        err_iter=e_lasso,
                         ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
+                    kwargs = dict(kwargs, t_cb_v2=np.trim_zeros(t_lasso).copy(),
+                                  e_cb_v2=np.trim_zeros(e_lasso).copy())                    
+                    t_lasso.fill(0)
                     cuda.stop_profiler()
                     lasso_cb_v2_eec.run(
                         ITER_MAX_R,

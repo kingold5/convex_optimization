@@ -155,7 +155,7 @@ class ClassLassoCPU:
 
     def rlt_display(self, SILENCE, t_elapsed, t):
         if not SILENCE:
-            print('{:>20}, time used: {:.8f} s, '
+            print('{:>25}, time used: {:.8f} s, '
                   'with {:-4} loops, and block number: {:-2}.'.format(
                       self.descript, t_elapsed, t+1, self.BLOCK))
             print('                                                    \
@@ -232,7 +232,7 @@ class ClassLassoCPU:
 
         t_elapsed = time.time() - start
         if self.TIME_RCD:
-            time_iter -= time_iter[0]
+            time_iter[:t+1] -= time_iter[0]
         self.rlt_display(SILENCE, t_elapsed, t)
         self.x = np.vstack(self.x_block)
 
@@ -240,6 +240,10 @@ class ClassLassoCPU:
 
 
 class ClassLassoCPUEEC(ClassLassoCPU):
+    def __init__(self, A_block_p, d_ATA, A, b, mu, BLOCK, P):
+        ClassLassoCPU.__init__(self, A_block_p, d_ATA, A, b, mu, BLOCK, P)
+        self.descript = 'Pure CPU EEC'
+
     def run(self, ITER_MAX, ERR_BOUND=None, err_iter=None, time_iter=None,
             SILENCE=False, DEBUG=False):
         self.init_flags(ERR_BOUND, err_iter, time_iter)
@@ -304,7 +308,7 @@ class ClassLassoCPUEEC(ClassLassoCPU):
 
         t_elapsed = time.time() - start
         if self.TIME_RCD:
-            time_iter -= time_iter[0]
+            time_iter[:t+1] -= time_iter[0]
         self.rlt_display(SILENCE, t_elapsed, t)
         self.x = np.vstack(self.x_block)
 
@@ -403,13 +407,11 @@ class ClassLasso(ClassLassoCPU):
             self._mv(m)
             # stepsize
             r = self.stepsize(m)
-
             self.bnd_chk(m, ERR_BOUND)
             if self.bnd_flag == 0:
                 break
             elif self.bnd_flag == 1:
                 continue
-
             # x(t+1) = x(t)+r(Bx(t)-x(t))
             self.x_block[m] += r*self.descent_D
             # Ax(t+1)
@@ -418,7 +420,7 @@ class ClassLasso(ClassLassoCPU):
 
         t_elapsed = time.time() - start
         if self.TIME_RCD:
-            time_iter -= time_iter[0]
+            time_iter[:t+1] -= time_iter[0]
         self.rlt_display(SILENCE, t_elapsed, t)
         self.x = np.vstack(self.x_block)
         # if not SILENCE:
@@ -428,6 +430,10 @@ class ClassLasso(ClassLassoCPU):
 
 
 class ClassLassoEEC(ClassLasso):
+    def __init__(self, gpu_cal, d_ATA, A, b, mu, BLOCK):
+        ClassLasso.__init__(self, gpu_cal, d_ATA, A, b, mu, BLOCK)
+        self.descript = 'CUDA & CPU EEC'
+
     def run(self, ITER_MAX, ERR_BOUND=None, err_iter=None, time_iter=None,
             SILENCE=False, DEBUG=False):
         self.init_flags(ERR_BOUND, err_iter, time_iter)
@@ -441,7 +447,6 @@ class ClassLassoEEC(ClassLasso):
         start_fun = cuda.Event()
         end_fun = cuda.Event()
         time_f = 0
-
         start = time.time()
         for t in range(ITER_MAX):
             # select mth block
@@ -474,12 +479,10 @@ class ClassLassoEEC(ClassLasso):
             if not self.IS_BOUNDED:
                 if np.allclose(self.Bx, self.x_block[m], atol=1e-04):
                     continue
-
             self.descent_D = self.Bx - self.x_block[m]
             self._mv(m)
             # stepsize
             r = self.stepsize(m)
-
             # x(t+1) = x(t)+r(Bx(t)-x(t))
             self.x_block[m] += r*self.descent_D
             # Ax(t+1)
@@ -488,7 +491,7 @@ class ClassLassoEEC(ClassLasso):
 
         t_elapsed = time.time() - start
         if self.TIME_RCD:
-            time_iter -= time_iter[0]
+            time_iter[:t+1] -= time_iter[0]
         self.rlt_display(SILENCE, t_elapsed, t)
         self.x = np.vstack(self.x_block)
         # if not SILENCE:
@@ -551,13 +554,13 @@ class ClassLassoCB_v1EEC(ClassLassoEEC, ClassLassoCB_v1):
     def __init__(self, h, gpu_cal, d_ATA, A, b, mu, BLOCK):
         ClassLassoCB_v1.__init__(
             self, h, gpu_cal, d_ATA, A, b, mu, BLOCK)
-
+        self.descript = 'Cublas & CPU EEC'
 
 # pure cuBlas
 class ClassLassoCB_v2(ClassLasso):
     def __init__(self, h, gpu_cal, A, b, mu, BLOCK):
         ClassLasso.__init__(self, gpu_cal, None, A, b, mu, BLOCK)
-        self.descript = 'Cublas & CUDA'
+        self.descript = 'Cublas & CUDA combined'
         self.h = h
         self.mu_gpu = gpuarray.zeros(1, np.float64)
         self.mu_gpu.fill(self.mu)
@@ -785,7 +788,7 @@ class ClassLassoCB_v2(ClassLasso):
         # cuda.stop_profiler()
         t_elapsed = start_event.time_till(end_event) / 1e3
         if self.TIME_RCD:
-            time_iter -= time_iter[0]
+            time_iter[:t+1] -= time_iter[0]
 
         self.rlt_display(SILENCE, t_elapsed, t)
         self.x_block_gpu.get(self.x_block)
@@ -797,6 +800,10 @@ class ClassLassoCB_v2(ClassLasso):
 
 
 class ClassLassoCB_v2EEC(ClassLassoCB_v2):
+    def __init__(self, h, gpu_cal, A, b, mu, BLOCK):
+        ClassLassoCB_v2.__init__(self, h, gpu_cal, A, b, mu, BLOCK)
+        self.descript = 'Cublas & CUDA EEC'
+
     def run(self, ITER_MAX, ERR_BOUND=None, err_iter=None, time_iter=None,
             SILENCE=False, DEBUG=False):
         self.init_flags(ERR_BOUND, err_iter, time_iter)
@@ -883,7 +890,7 @@ class ClassLassoCB_v2EEC(ClassLassoCB_v2):
         # cuda.stop_profiler()
         t_elapsed = start_event.time_till(end_event) / 1e3
         if self.TIME_RCD:
-            time_iter -= time_iter[0]
+            time_iter[:t+1] -= time_iter[0]
         self.rlt_display(SILENCE, t_elapsed, t)
         self.x_block_gpu.get(self.x_block)
         x = np.vstack(self.x_block)

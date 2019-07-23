@@ -314,7 +314,7 @@ class ClassLassoCB_v2comp(ClassLassoCB_v2):
         end_event.synchronize()
         t_elapsed = start_event.time_till(end_event) / 1e3
         if self.TIME_RCD:
-            time_iter -= time_iter[0]
+            time_iter[:t+1] -= time_iter[0]
         self.rlt_display(SILENCE, t_elapsed, t)
         self.x_block_gpu.get(self.x_block)
         self.x = np.vstack(self.x_block)
@@ -330,9 +330,9 @@ ERR_BOUND = 1e-04
 READ_FLAG = False
 # save parameters or not
 SAVE_FLAG = False
-ITER_MAX = 400
+ITER_MAX = 1000
 WARM_UP = 4
-BLOCK = 1
+BLOCK = 2
 P = 2
 N = 2 ** 10
 K = 2 ** 13
@@ -344,14 +344,10 @@ d_ATA_CPU = fun_diag_ATA_c(A_block_p_c)
 gpu_cal = GPU_Calculation(A_comp, BLOCK)
 gpu_cal.diag_ATA_c()
 d_ATA_c = gpu_cal.d_ATA_c
-print(np.allclose(d_ATA_CPU, d_ATA_c))
 
 h = cublas.cublasCreate()
-"""
 lasso_cpu_comp = ClassLassoCPUComp(
     A_block_p_c, d_ATA_c, A_comp, b_c, mu_c, BLOCK, P)
-lasso_cpu_comp.run(ITER_MAX, ERR_BOUND, SILENCE=False, DEBUG=False)
-"""
 lasso_cb_v1_comp = ClassLassoCB_v1Comp(
     h, gpu_cal, d_ATA_c, A_comp, b_c, mu_c, BLOCK)
 lasso_cb_v2_comp = ClassLassoCB_v2comp(
@@ -361,7 +357,8 @@ for _ in range(WARM_UP):
     lasso_cb_v1_comp.run(ITER_MAX, ERR_BOUND=ERR_BOUND, SILENCE=True, DEBUG=False)
     lasso_cb_v2_comp.run(ITER_MAX, ERR_BOUND=ERR_BOUND, SILENCE=True, DEBUG=False)
 
-lasso_cb_v1_comp.run(ITER_MAX, SILENCE=False, DEBUG=False)
-lasso_cb_v2_comp.run(ITER_MAX, SILENCE=False, DEBUG=False)
+lasso_cpu_comp.run(ITER_MAX, ERR_BOUND=ERR_BOUND, SILENCE=False, DEBUG=False)
+lasso_cb_v1_comp.run(ITER_MAX, ERR_BOUND=ERR_BOUND, SILENCE=False, DEBUG=False)
+lasso_cb_v2_comp.run(ITER_MAX, ERR_BOUND=ERR_BOUND, SILENCE=False, DEBUG=False)
 
 cublas.cublasDestroy(h)
