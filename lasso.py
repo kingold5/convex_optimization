@@ -812,12 +812,13 @@ __global__ void _stepsize(double *r, double *s11_s23, double *Bx_abs,
     }
 }
 
-__global__ void _err_chk_g(double indicator,
-double *error, double *idx, double *err_bound)
+__global__ void _err_chk_g(int *indicator,
+double *error, int *idx, double *err_bound)
 {
-    if (error[*idx] < (*err_bound))
+    if (fabs(error[(*idx)-1]) < (*err_bound))
     {
-        indicator = 1.0;
+        printf("%f, %d     ", error[(*idx)-1], *idx);
+        *indicator = 1;
     }
 }
 """)
@@ -832,14 +833,14 @@ class ClassLassoCB_v2Dev(ClassLassoCB_v2):
         self.r2_gpu = gpuarray.zeros_like(self.s11_s23_gpu)
         self.r_gpu = gpuarray.zeros_like(self.s11_s23_gpu)
         self.ERR_BOUND_GPU = gpuarray.zeros_like(self.s11_s23_gpu)
-        self.idx_gpu = gpuarray.zeros_like(self.s11_s23_gpu)
-        self.indicator = np.float64(0)
+        self.idx_gpu = gpuarray.zeros(1, np.int32)
+        self.indicator = cuda.managed_empty(
+            1, np.int32, mem_flags=cuda.mem_attach_flags.GLOBAL)
 
         self._stepsize = mod.get_function("_stepsize")
         self._err_chk_g = mod.get_function("_err_chk_g")
 
     def stepsize(self, m):
-        cublas.cublasSetPointerMode(self.h, int(1))
         cublas.cublasDdotdev(
             self.h, self.s11_gpu.size, self.s11_gpu.gpudata, 1,
             self.s23_gpu.gpudata, 1, self.s11_s23_gpu.gpudata)
@@ -854,7 +855,6 @@ class ClassLassoCB_v2Dev(ClassLassoCB_v2):
                        self.x_abs_gpu, self.r2_gpu, self.mu,
                        block=(1, 1, 1),
                        grid=(1, 1, 1))
-        cublas.cublasSetPointerMode(self.h, int(0))
 
     def bnd_chk(self, handle, m, ERR_BOUND):
         # bnd_flag value
@@ -875,9 +875,10 @@ class ClassLassoCB_v2Dev(ClassLassoCB_v2):
                         self.err_gpu.gpudata, 1, self.idx_gpu.gpudata)
                     self._err_chk_g(
                         self.indicator, self.err_gpu, self.idx_gpu,
-                        self.ERR_BOUND_GPU, block=(1, 1, 1))
-                if self.indicator == 1.0:
-                    self.indicator == 0.0
+                        self.ERR_BOUND_GPU, block=(1, 1, 1), grid=(1, 1, 1))
+                    cuda.Context.synchronize()
+                if self.indicator == np.int32(1):
+                    self.indicator[:] = np.int32(0)
                     if self.BLOCK - 1 != m:
                         self.block_Cnt += 1
                         self.bnd_flag = 1
@@ -897,7 +898,7 @@ class ClassLassoCB_v2Dev(ClassLassoCB_v2):
         self.block_Cnt = 0
         self.bnd_flag = -1
         self.close_gpu.fill(0)
-        self.indicator = 0.0
+        self.indicator[:] = np.int32(0)
 
         start_fun = cuda.Event()
         end_fun = cuda.Event()
@@ -938,7 +939,9 @@ class ClassLassoCB_v2Dev(ClassLassoCB_v2):
                 if not self.IS_BOUNDED:
                     continue
                 else:
+                    cublas.cublasSetPointerMode(self.h, int(1))
                     self.bnd_chk(self.h, m, ERR_BOUND)
+                    cublas.cublasSetPointerMode(self.h, int(0))
                     if self.bnd_flag == 0:
                         break
                     elif self.bnd_flag == 1:
@@ -962,6 +965,7 @@ class ClassLassoCB_v2Dev(ClassLassoCB_v2):
             cublas.cublasDgemv(self.h, cublas._CUBLAS_OP['T'], self.idx_n, self.idx_m,
                                1, self.gpu_cal.A_b_gpu[m].gpudata, self.idx_n,
                                self.d_d_gpu.gpudata, 1, 0, self.s23_gpu.gpudata, 1)
+            cublas.cublasSetPointerMode(self.h, int(1))
             # stepsize
             self.stepsize(m)
 
@@ -971,7 +975,6 @@ class ClassLassoCB_v2Dev(ClassLassoCB_v2):
                     break
                 elif self.bnd_flag == 1:
                     continue
-            cublas.cublasSetPointerMode(self.h, int(1))
             # x_block[m] update
             cublas.cublasDaxpydev(self.h, self.d_d_gpu.size, self.r_gpu.gpudata,
                                   self.d_d_gpu.gpudata, 1, self.x_block_gpu[m].gpudata, 1)
@@ -995,6 +998,8 @@ class ClassLassoCB_v2Dev(ClassLassoCB_v2):
         #     print(str(time_f/1e3) + ' s.')
 
         return t_elapsed
+
+
 class ClassLassoCB_v2EEC(ClassLassoCB_v2):
     def run(self, ITER_MAX, ERR_BOUND=None, err_iter=None, time_iter=None,
             SILENCE=False, DEBUG=False):
