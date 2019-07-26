@@ -12,7 +12,8 @@ from cpu_calculation import A_bp_get
 from parameters import parameters
 from lasso import ClassLasso, ClassLassoR, ClassLassoCPU,\
         ClassLassoCB_v1, ClassLassoCB_v2, ClassLassoCPUEEC,\
-        ClassLassoEEC, ClassLassoCB_v1EEC, ClassLassoCB_v2EEC
+        ClassLassoEEC, ClassLassoCB_v1EEC, ClassLassoCB_v2EEC,\
+        ClassLassoCB_v2Dev
 import settings
 
 settings.init()
@@ -152,6 +153,8 @@ for n_exp in np.arange(ROW_0, ROW_1):
                         h, gpu_cal, A, b, mu, BLOCK)
                     lasso_cb_v2_eec = ClassLassoCB_v2EEC(
                         h, gpu_cal, A, b, mu, BLOCK)
+                    lasso_cb_v2_dev = ClassLassoCB_v2Dev(
+                        h, gpu_cal, A, b, mu, BLOCK)
                     time_winit += time.time() - t_init
 
                     # let gpu warmup
@@ -174,6 +177,8 @@ for n_exp in np.arange(ROW_0, ROW_1):
                         lasso_cb_v2.run(ITER_MAX, ERR_BOUND=ERR_BOUND,
                                         SILENCE=True, DEBUG=False)
                         lasso_cb_v2_eec.run(ITER_MAX, ERR_BOUND=ERR_BOUND,
+                                            SILENCE=True, DEBUG=False)
+                        lasso_cb_v2_dev.run(ITER_MAX, ERR_BOUND=ERR_BOUND,
                                             SILENCE=True, DEBUG=False)
 
                     # run instances
@@ -232,6 +237,13 @@ for n_exp in np.arange(ROW_0, ROW_1):
                     cuda.stop_profiler()
                     lasso_cb_v2_eec.run(
                         ITER_MAX_R,
+                        ERR_BOUND=ERR_BOUND,
+                        SILENCE=False,
+                        DEBUG=False)
+                    lasso_cb_v2_dev.run(
+                        ITER_MAX_R,
+                        time_iter=t_lasso,
+                        err_iter=e_lasso,
                         ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
