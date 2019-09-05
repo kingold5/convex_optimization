@@ -175,7 +175,7 @@ class GPU_Calculation:
             self.TYPE = 'double'
         elif A.dtype == 'float32':
             self.TYPE = 'float'
-            
+
         self.Block = Block
         self.MAT_WIDTH_ALL = A.shape[1]
         self.init_cpu_array(A)

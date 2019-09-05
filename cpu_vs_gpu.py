@@ -90,14 +90,14 @@ ITER_MAX = 1000
 ITER_MAX_R = 2000
 WARM_UP = 5
 # row from 2 ** ROW_0 to 2 ** ROW_1
-ROW_0 = 11
-ROW_1 = 12
+ROW_0 = 12
+ROW_1 = 13
 # column from 2 ** (ROW+COLP_0) to 2 ** (ROW+COLP_1)
-COLP_0 = 4
-COLP_1 = 5
+COLP_0 = 6
+COLP_1 = 7
 # block num from 2 ** BLK_0 to 2 ** BLK_1
 BLK_0 = 0
-BLK_1 = 5
+BLK_1 = 4
 P = 4
 
 # time and error recording array
@@ -182,7 +182,7 @@ for n_exp in np.arange(ROW_0, ROW_1):
                                             SILENCE=True, DEBUG=False)
 
                     # run instances
-                    """                    
+                    """
                     t_exe_cpu[i] = lasso_cpu.run(
                         ITER_MAX,
                         ERR_BOUND=ERR_BOUND,
@@ -214,39 +214,33 @@ for n_exp in np.arange(ROW_0, ROW_1):
                     lasso_cb_v1.run(
                         ITER_MAX_R,
                         ERR_BOUND=ERR_BOUND,
-                        time_iter=t_lasso,
-                        err_iter=e_lasso,
                         SILENCE=False,
                         DEBUG=False)
-                    kwargs = dict(kwargs,
-                                  t_cb_v1=np.trim_zeros(t_lasso, 'b').copy(),
-                                  e_cb_v1=np.trim_zeros(e_lasso, 'b').copy()) 
-                    e_lasso.fill(0)
-                    t_lasso.fill(0)
-                    cuda.start_profiler()
+                    # kwargs = dict(kwargs,
+                    #               t_cb_v1=np.trim_zeros(t_lasso, 'b').copy(),
+                    #               e_cb_v1=np.trim_zeros(e_lasso, 'b').copy()) 
+                    # e_lasso.fill(0)
+                    # t_lasso.fill(0)
                     lasso_cb_v2.run(
                         ITER_MAX_R,
-                        time_iter=t_lasso,
-                        err_iter=e_lasso,
                         ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
-                    kwargs = dict(kwargs, t_cb_v2=np.trim_zeros(t_lasso).copy(),
-                                  e_cb_v2=np.trim_zeros(e_lasso).copy())                    
-                    t_lasso.fill(0)
-                    cuda.stop_profiler()
+                    # kwargs = dict(kwargs, t_cb_v2=np.trim_zeros(t_lasso).copy(),
+                    #               e_cb_v2=np.trim_zeros(e_lasso).copy())                    
+                    # t_lasso.fill(0)
                     lasso_cb_v2_eec.run(
                         ITER_MAX_R,
                         ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
+                    cuda.start_profiler()
                     lasso_cb_v2_dev.run(
                         ITER_MAX_R,
-                        time_iter=t_lasso,
-                        err_iter=e_lasso,
                         ERR_BOUND=ERR_BOUND,
                         SILENCE=False,
                         DEBUG=False)
+                    cuda.stop_profiler()
 
                 # display results
                 # rlt_display(N, K, BLOCK, GPU_Calculation.T_WIDTH,
